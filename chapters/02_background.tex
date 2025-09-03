@@ -1,0 +1,11 @@
+% !TeX root = ../main.tex
+\chapter{Background and Threat Model}\label{chapter:background}
+This section relies heavily on the definition presented in [Exploring Privacy issues in RAG].
+\section{Standard RAG Pipeline}
+The Retrieval-Augmented Generation (RAG) system consists of a large language model $M$, a retrieval dataset $D$ and a retriever $R$. To answer a query $q$, the retriever $R$ fetches the $k$ most relevant documents from $D$. The relevance of a document to a query is typically measured by calculating the similarity or distance between the query embedding $e_q$ and the document embedding $e_d$. Formally:
+\[R(q,D) = \{d_1,d_2,..., d_k\} \mbox{ with } dist(e_q, e_{d_i}) \mbox{ for } i \in \{1...k\} \mbox{ in the top } k\]
+Common similarity measures include cosine or L2. Given the $k$-most relevant documents the answer $a$ is generated using the language model $M$ by combining the retrieved documents with the query. $$a = M(R(q,D)\vert\vert q)$$
+\section{Taxonomies}
+
+\section{Threat Model} 
+For the adversary we assume a black-box scenario, where the attacker's access to the model is limited to API queries. Therefore the attacks are limited to carefully designed queries accumulate responses over multiple sessions.

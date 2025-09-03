@@ -1,0 +1,211 @@
+% !TeX root = ../main.tex
+\chapter{Approach}\label{chapter:approach}
+% rq1: Can we implement a system capable of detecting
+\section{Overview}
+This chapter introduces a risk-aware preprocessing pipeline that detects, quantifies and mitigates the risk of cross-document linkage in unstructured texts. By combining the extracted potentially-identifying entities from the text with their relevance, corpus-wide uniqueness and risk weights, a document-linkage graph is created. Using this graph, critical entities and connections are identified and selectively pseudonymized.\\The approach attempts to balance privacy-preservation and downstream task performance by creating the smallest set of substitutions necessary to reduce both per-document as well as chain-level risk below predefined thresholds. \\
+The presented implementation targets a health-insurance setting with an adapted entity schema and prompts, but the method itself is domain-agnostic, with the strength of the privacy-preservation being configurable via hyperparameters like risk thresholds and chain lengths.\\
+Our proposed approach focusses on modifying the retrieval dataset $D$, while leaving the Retrieval-Augmented-Generation untouched to avoid additional computational costs during inference. It has to be executed once before the documents are inserted into the RAG-Systems database for retrieval.
+
+
+
+\section{Pipeline}
+\subsection{Data and Normalization}
+% name the required format (json), normalization and creation of document objects & id using md5
+The documents are ingested from a folder of JSON Files, each containing the fields: id, metadata and content. The content is normalized to stabilize matching and hashing. A unique identifier based on the provided and its normalized content using the md5 hash is assigned to avoid collisions and clear logging.
+
+\[\mbox{document\_id} = \mbox{id}_{doc} \vert\vert \mbox{md5(normalized\_content)}\]
+
+The normalization is kept minimal here, converting the text to lowercase to ease matching during later steps. Additional domain-specific normalizations, like splitting or cleaning of datasets containing fix-format data, can be applied here, but are not necessary for the pipeline to function.
+All documents are gathered in a global list of $\texttt{Document}$ objects for later access.
+
+\subsection{Entity Schema and Extraction}
+% which entities exist , extraction of entities (prompts, two stage process, output format, global_entity object cration)
+This section presents an entity type system tailored to the health-insurance setting and a two-stage entity extraction process that uses an LLM to first extract local patient-related entities, then performs a secondary extraction run to discover cross-document linkage.
+
+\subsubsection{Entity Schema (Insurance)}\label{subsubsec:entity_schema}
+For the given setting, the following entity-weight-schema is introduced. It is designed to capture direct- as well as quasi-identifiers and assigns a weight $w_{type}$ to each type, representing the severity in case of leakage. The weight is defined as $w_{type}\in[0,1]$, with higher values indicating higher severity.
+
+\begin{table}[h!]
+    \centering
+    \begin{tabular}{lc}
+        \toprule
+        \textbf{Entity Type} & \textbf{Risk Weight} \\
+        \midrule
+        NAME                 & 1.00                 \\
+        EMAIL                & 0.95                 \\
+        ADDRESS              & 0.95                 \\
+        PHONE\_NUMBER        & 0.90                 \\
+        PATIENT\_ID          & 0.85                 \\
+        BIRTHDATE            & 0.80                 \\
+        INDIRECT\_IDENTIFIER & 0.80                 \\
+        PROCESS\_ID          & 0.80                 \\
+        UNIQUE\_FACT         & 0.80                 \\
+        MEDICAL\_CONDITION   & 0.75                 \\
+        AGE                  & 0.60                 \\
+        EVENT                & 0.55                 \\
+        EVENT\_DATE          & 0.50                 \\
+        LOCATION             & 0.50                 \\
+        DEMOGRAPHIC          & 0.40                 \\
+        \bottomrule
+    \end{tabular}
+    \caption{Possible entity schema and corresponding risk weights.}
+    \label{tab:entity-weight-schema}
+\end{table}
+
+\subsubsection{Output format and normalization}
+Each extraction stage returns a JSON of the following form. The $\texttt{original\_value}$ represents the verbatim value of the entity in the document while the $\texttt{normalized\_value}$ is used to unify different representations of the same concept or entity during later stepts. For example: "12 April 2019" and "12/04/19" would both be normalized to "12/04/2019". $\texttt{entity\_type}$ is one of the entity types defined in \ref{subsubsec:entity_schema} and $\texttt{relevance}\in[0,1]$ is set by the LLM, indicating how useful an entity is for re-identification.
+
+\begin{lstlisting}[caption={Response JSON schema},label={lst:entity-output-schema}]
+{
+    "entities": [
+        [original_value, normalized_value, entity_type, relevance],
+        # additional entities ...
+    ]
+}
+\end{lstlisting}
+
+Each extracted entity is given a unique identifier and is parsed into a $\texttt{GlobalEntity}$ object and a $\texttt{EntityInDoc}$ object. The former object stores all global information like: a list of original values, the normalized value, the type and documents this entity appears in, while the latter is stored on a per-document basis, including only the id and the relevance of an entity for one document.
+\[\mbox{entity\_id} = \mbox{md5(normalized\_value} \vert\vert \mbox{entity\_type)}\]
+
+
+
+\subsubsection{Local Entity Extraction}
+Each extraction is performed on a per-document basis. For each request, the model receives the normalized content along with an prompt that specifies the entity schema described in Section~\ref{lst:entity-output-schema}. The prompt instructs the LLM to extract relevant entities for patient-identification and specifies extraction and normalization rules. The exact phrasing of the prompt can be found in Appendix~\ref{appendix:local_extraction_prompt}.
+
+
+\subsubsection{Context-Aware Entity Extraction}
+The second extraction step is based on the results of local extraction. Here the model receives the document content together with a set of previously extracted normalized entities, referred to as $\texttt{existing\_entities}$. More specifically, $\texttt{existing\_entities}$ consists of a list of $(\texttt{normalized\_value}, \texttt{entity\_type})$ tuples. The previously set relevance of an entity is purposely left out to allow the LLM to set a new, unbiased relevance score.
+
+The prompt is modified to encourage the search for matches between the $\texttt{existing\_entities}$ and the document content. This provides context for the extraction, allowing the LLM to uncover entities that were not extracted in the first pass, but gained potential through cross-document recurrence. For example, a study mentioning a specific demographic (e.g. ``construction workers'') may not initially be considered sensitive. However, if another document links the same demographic to a medical condition, the combined information becomes more relevant for potential re-identification. By leveraging this context, the LLM becomes more sensitive to fragmented information and is able to create previously unseen links between documents. % TODO: improve example
+
+\paragraph{Issue: Length of Passed Context}
+While the approach is effective for smaller numbers of documents, the performance degrades when the list of $\texttt{existing\_entities}$ becomes too long. Direct identifiers like names are extracted during the local entity extraction, but not during the second extraction, despite the given context. This problem occurs despite the model having a sufficient context length. To mitigate this, the following filtering strategies were explored %TODO: add paper to cite
+
+\subparagraph{Heuristic Reduction via Uniqueness and Relevance}
+Each entity is assigned a uniqueness score (Details regarding calculation in \ref{subsubsec:uniqueness}). The product of the uniqueness and the maximal relevance across all documents of an entity make up the filter score:
+\[
+    \texttt{filter\_score} \;=\; \texttt{max\_relevance} \cdot \texttt{uniqueness\_score}.
+\]
+Entities with a filter score below a chosen threshold (e.g. 0.3) are excluded from the context. The rationale for this design is twofold:
+\begin{itemize} % TODO: should i add that this was empirical? 
+    \item entities that occur frequently across documents are already sufficiently ``visible'' to be extracted without additional context, and
+    \item entities with extremely low relevance are typically too generic (e.g., broad locations such as ``Massachusetts'' or vague dates such as ``last year''), and thus rarely contribute meaningful information.
+\end{itemize}
+This strategy ensures that only entities with relatively high uniqueness and relevance are added to the context for the second extraction step.
+
+
+\subparagraph{Filtering by Entity Type}
+Some high-risk entity types, such as direct identifiers (e.g., names, emails, addresses) are inherently sensitive regardless of the context. Therefore, including them in $\texttt{existing\_entities}$ provides little value for identifying previously overlooked entities. However, since these direct identifiers only make up a small fraction of all extracted entities, omitting them does not significantly reduce the length of the passed context.
+
+\subparagraph{Limiting the Number of Entities}
+Another strategy is to impose a hard limit on the number of entities included in the context. For instance, we could select only the top-$k$ entities, where $k$ elements are chosen using one of the following strategies:
+\begin{itemize}
+    \item \textbf{Most relevant entities:} prioritizes high-utility entities but risks redundancy, as these are already sensitive without additional context
+    \item \textbf{Least relevant entities:} may uncover context-dependent links, but often includes overly generic entities that add create generic links between documents
+    \item \textbf{Most recent entities:} assumes temporal locality of list of processed documents, e.g. documents processed after another are related. % TODO improve formulation
+\end{itemize}
+
+% TODO add short text example?
+For the final implementation, a combination of heuristic reduction and type-based filtering was employed to balance context lenght with utility.
+
+\subsection{Privacy Analysis}
+This section formalizes how, given the entities and their relevance, the pipeline quantifies the privacy risk on a single- and multi-document level. Potential privacy violations are detected and marked, allowing for targeted pseudonymization in later steps. 
+
+\subsubsection{Uniqueness}\label{subsubsec:uniqueness}
+Uniqueness is a global property, that captures how rare an enityt is with respect to the entire document collection. Let $N$ be the number of documents and let an entity $e$ occur in $freq_e$ distinct documents. We define an IDF-inspired uniqueness score $u(e)\in[0,1]$:
+\[u(e) = \frac{log(\frac{N+1}{freq_e})}{log(N+1)}\]
+The score assigns the maxiumum uniqueness ($\approx 1$) to entities that appear only once in the corpus and decays smoothly for more frequent entities. Reason for this formula is, that unique or near-unique entities (e.g. patient names, rare diseases) are much more useful for re-identification than common entities (e.g. a countries name). Using this normalized IDF function creates a simple and efficiently computable measure.
+
+\subsubsection{Document Risk}\label{subsubsec:document_risk}
+To calculate a single document risk score $R(d)$, we first need to calculate the \textit{per-entity contribution} $c(e,d)$ for each entity in the document. 
+\paragraph{Entity Contribution}
+Each extracted entity consists of three scalar factors:
+\begin{itemize}
+\item $\texttt{relevance}\in[0,1]$: a document-specific score set by the LLM, indicating the value of an entity regarding re-identification
+\item $u(e)\in[0,1]$: the global uniqueness defined above,
+\item $w_{type}\in[0,1]$: a fixed risk weight that depends on the entity type $t$ (see Table \ref{tab:entity-weight-schema}).
+\end{itemize}
+We set the \textit{per-entity contribution} to:
+\[
+c(e,d) \;=\; \texttt{relevance}(e,d) \cdot u(e) \cdot w_{type(e)}.
+\]
+Intuitively, an entity has a large contribution if it's highly relevant in a document, globally unique and describes sensitive attribute (e.g. NAME, EMAIL) of a person.
+\paragraph{Accumulation of Entity Contributions}
+Given the \textit{per-entity contributions} $c(e,d)$ of all entities $e$ in document $d$, we aggregate them into the final document risk score $R(d)$. We propose the following complement-of-product formulation:
+\[
+R(d) \;=\; 1 - \prod_{i=1}^m (1 - c_i).
+\]
+This formula treats each entities contribution as independent for re-identification and returns a bounded risk-score $R(d)\in[0,1]$. Additionally, this formula has multiple desirable properties:
+\begin{itemize}
+    \item a single large contribution $c_i$ pushes $R(d)$ close to 1
+    \item high-risk entities cannot be dilluted by multiple low-risk (e.g. event dates, demographics) entities 
+    \item multiple medium to low risk entities accumulate, but with diminishing returns (e.g. 5 locations increase risk, but not linearly)
+\end{itemize}
+
+\subsubsection{Document Graph}
+To model cross-document linkage, we construct an undirected document graph $G=(D,E)$ where each node $d\in D$ represents one document. An edge $(d_i,d_j)\in E$ exists when both documents $d_i$ and $d_j$ share at least one entity. Each edge stores:
+\begin{itemize}
+\item $\texttt{via}(e)$: the set of shared entity IDs connecting both documents,
+\item $\texttt{strength}\in[0,1]$: a computed value describing the strength of the link between documents
+\end{itemize}
+The edge strength is computed like the document risk, accumulating the \textit{per-entity contribution} of shared entities. We handle the potential difference in $\texttt{relevance}$ by choosing the higher relevance for the calculation. This results in the following formula:
+\[
+s_e(d_i, d_j) \; =\; max(\texttt{relevance}(e,d_i), \texttt{relevance}(e,d_j)) \cdot u(e) \cdot w_{type(e)}.
+\]
+The accumulation step is identical to the one defined in the section Document Risk \ref{subsubsec:document_risk}, resulting in the same desireable properties mentioned above.
+\[
+\texttt{strength}(d_i,d_j) \;=\; 1 - \prod_{e\in{via}}(1 - s_e(d_i,d_j))
+\]
+To reduce computational cost and noise, we prune the graph by removing egdes with $\texttt{strenght}$ below a user-specified threshold (e.g. $0.3$).
+\subsubsection{Chain (Path) Risk}\label{subsubsec:chain_risk}
+Re-identification often requires gathering information across multiple documents. To quantify this risk, we extract all \textit{document chains} up to length $k$ (simple paths or multi-document subgraphs) and calculate their respective chain risk. Each \textit{document chain} consists of documents $d_1,\dots,d_k$ and the edges connecting them. All edges together create a set of entities we refer to as \textit{active entities}. During the anonymization step this set will be partially masked, leaving a reduced set of \textit{active entities}. All following calculations are based on this (potentielly masked) set.
+
+To calculate the Chain Risk $R_{\texttt{chain}}$ of length $k$, we compute a \emph{hop risk} for each edge/ hop $h$ within the chain $H$ and accumulate it using the complement-of-product formulation. The \textit{hop\_risk} of one hop $h$ between two documents $d_{i_h}$ and $d_{j_h}$ is defined as the edge strength scaled by the modified average of both document risks. The scaling captures how much the documents' internal risk amplifies the hop risk, allowing a low average document risk to reduce the \emph{hop risk} by up to 1/2. The exact formula goes:
+\[
+\texttt{hop\_risk}(h)\;=\; \texttt{edge\_strength} * \frac{1+\frac{R(d_{i_h}) + R(d_{j_h})}{2}}{2}
+\]
+\[
+R_{\texttt{chain}}(H) \;=\; 1 - \prod_{h\in H} (1 - \texttt{hop\_risk}(h))
+\]
+
+
+\subsection{Pseudonymization} % TODO adapt implementation to new system (first do document, then categorize , then get % based reduction rate) or maybe i should keep it like that, arguing that first stage is minimal, previously high risk documents still require stronger redaction, even if the score has dropped => better safe than sorry(?) 
+% NO, don't do that switch to first doc, then category, then reduction
+The final step of the pipeline is the selective pseudonymization. Instead of a blanket redaction of high risk entities, this step aims to replace the smallest set of entities required to push both single and cross-document (chain) risk below configurable targets. This is realized using a two-stage redaction process: a minimal \textit{document level} redaction pass that removes the largest, most direct risks, followed by a \textit{chain-level} redaction pass, that focusses on residual chain risks. A continuously updated \textit{pseudonym dictionary} records every masked entity so that (a) already masked entities are excluded from the following calculations and (b) replacements for entities are consistent across the entire corpus.
+
+
+\paragraph{Global entity contribution} For prioritization during selection, we compute a global contribution score for every entity $e$:
+
+\[
+\mathrm{imp}(e) \;=\; \max_{d\in\mathrm{docs}(e)} (\texttt{relevance}(e,d)) \cdot u(e) \cdot w_{type(e)}
+\]
+
+
+\subsubsection{Document-level redaction}
+We begin with redacting entities on a per document basis. For a document $d$ we iteratively select the highest-$\mathrm{imp}$ entity that is still unmasked, update the \textit{pseudonym dictionary} and recalculate the document risk. This greedy algorithm continues until the risk score is puhsed below a threshold $\theta_{\mathrm{doc}}$ (e.g., $0.95$) or no further entities remain.\\
+The goal of this stage is the \textit{minimal} removal of the most dominant privacy threats (direct identifiers). Therefore, greedy selection is appropriate because the immediate privacy threat coming from each document has to be removed. Other, more nuanced selection strategies might risk redacting several low risk entities to preserve a single high risk entity, leading to leakage. 
+
+\subsubsection{Chain-level redaction}
+
+
+
+
+Using a greedy algorithm that iteratively selects the entity with the highest importance $\mathrm{imp}$ to redact, until the risk score is pushed below a threshold (e.g. 0.95). This avoids any single document from being able to re-identify an individual. Other, more nuanced, selection strategies were not employed % because this is only the first step and hsould get rid of the biggest threats, keep redaction minimal to keep utility and avoid over redaction how should i formulate
+
+\subsubsection{Chain-level redaction}
+The redaction of connecting entities prevents the gathering of information across multiple documents. With the worst privacy threats removed after stage one, this stage focusses on optimizing redactions to preserve utiltiy. Compared to stage one, a fraction-based limit is introduced, depending on the risk level assigned to the chain. EXAMPLE: keep\_ratio: Dict = {"HIGH": 0.70, "MEDIUM": 0.90}. 
+
+The following selection strategies were explored:
+\begin{itemize}
+\item \textbf{Greedy:} iteratively mask the highest contributing entity and recompute affected risks until targets are met,
+\item \textbf{Knapsack-based:} model the problem of selecting a minimal set of entities that achieves a required risk reduction as a 0/1 knapsack-like optimization and solve with dynamic programming (computationally expensive!!)
+\end{itemize}
+
+
+Final step is taking the updated \textit{pseudonym dictionary} and redacting the entities by matching to original values and replacing with pseudonym. 
+
+
+\subsection{Hyperparameters}
+\section{RQ1: Can a static system model and cross-document linkage sufficiently}
+
+
