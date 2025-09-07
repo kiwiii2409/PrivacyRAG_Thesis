@@ -2,8 +2,8 @@
 \chapter{Approach}\label{chapter:approach}
 % rq1: Can we implement a system capable of detecting
 \section{Overview}
-This chapter introduces a risk-aware preprocessing pipeline that detects, quantifies and mitigates the risk of cross-document linkage in unstructured texts. By combining the extracted potentially-identifying entities from the text with their relevance, corpus-wide uniqueness and risk weights, a document-linkage graph is created. Using this graph, critical entities and connections are identified and selectively pseudonymized.\\The approach attempts to balance privacy-preservation and downstream task performance by creating the smallest set of substitutions necessary to reduce both per-document as well as chain-level risk below predefined thresholds. \\
-The presented implementation targets a health-insurance setting with an adapted entity schema and prompts, but the method itself is domain-agnostic, with the strength of the privacy-preservation being configurable via hyperparameters like risk thresholds and chain lengths.\\
+This chapter introduces a risk-aware preprocessing pipeline that detects, quantifies and mitigates the risk of cross-document linkage in unstructured texts. By combining the extracted potentially-identifying entities from the text with their relevance, corpus-wide uniqueness and risk weights, a document-linkage graph is created. Using this graph, critical entities and connections are identified and selectively blurred.\\The approach attempts to balance privacy-preservation and downstream task performance by creating the smallest set of substitutions necessary to reduce both per-document as well as cross-document linkage risk below predefined thresholds. \\
+The presented implementation targets a health-insurance setting with an adapted entity schema and prompts. But the method itself is domain-agnostic, with the strength of the privacy-preservation being configurable via hyperparameters like risk thresholds and chain lengths.\\
 Our proposed approach focusses on modifying the retrieval dataset $D$, while leaving the Retrieval-Augmented-Generation untouched to avoid additional computational costs during inference. It has to be executed once before the documents are inserted into the RAG-Systems database for retrieval.
 
 
@@ -25,30 +25,32 @@ This section presents an entity type system tailored to the health-insurance set
 \subsubsection{Entity Schema (Insurance)}\label{subsubsec:entity_schema}
 For the given setting, the following entity-weight-schema is introduced. It is designed to capture direct- as well as quasi-identifiers and assigns a weight $w_{type}$ to each type, representing the severity in case of leakage. The weight is defined as $w_{type}\in[0,1]$, with higher values indicating higher severity.
 
-\begin{table}[h!]
+\begin{table}[h!] 
     \centering
     \begin{tabular}{lc}
         \toprule
         \textbf{Entity Type} & \textbf{Risk Weight} \\
         \midrule
-        NAME                 & 1.00                 \\
-        EMAIL                & 0.95                 \\
-        ADDRESS              & 0.95                 \\
-        PHONE\_NUMBER        & 0.90                 \\
-        PATIENT\_ID          & 0.85                 \\
-        BIRTHDATE            & 0.80                 \\
-        INDIRECT\_IDENTIFIER & 0.80                 \\
-        PROCESS\_ID          & 0.80                 \\
-        UNIQUE\_FACT         & 0.80                 \\
-        MEDICAL\_CONDITION   & 0.75                 \\
-        AGE                  & 0.60                 \\
-        EVENT                & 0.55                 \\
-        EVENT\_DATE          & 0.50                 \\
-        LOCATION             & 0.50                 \\
-        DEMOGRAPHIC          & 0.40                 \\
+        NAME                 & 1.00 \\
+        PATIENT\_ID          & 0.95 \\
+        ADDRESS              & 0.90 \\
+        PHONE\_NUMBER        & 0.85 \\
+        MEDICAL\_CONDITION   & 0.85 \\
+        EMAIL                & 0.80 \\
+        NON\_PERSONAL\_ID    & 0.80 \\
+        UNIQUE\_FACT         & 0.78 \\
+        BIRTHDATE            & 0.75 \\
+        TREATMENT            & 0.72 \\
+        INDIRECT\_IDENTIFIER & 0.70 \\
+        PROVIDER             & 0.65 \\
+        EVENT\_DATE          & 0.60 \\
+        AGE                  & 0.55 \\
+        LOCATION             & 0.55 \\
+        EVENT                & 0.50 \\
+        DEMOGRAPHIC          & 0.35 \\
         \bottomrule
     \end{tabular}
-    \caption{Possible entity schema and corresponding risk weights.}
+    \caption{Entity types sorted by descending risk weight in an insurance context.}
     \label{tab:entity-weight-schema}
 \end{table}
 
@@ -73,7 +75,7 @@ Each extracted entity is given a unique identifier and is parsed into a $\texttt
 Each extraction is performed on a per-document basis. For each request, the model receives the normalized content along with an prompt that specifies the entity schema described in Section~\ref{lst:entity-output-schema}. The prompt instructs the LLM to extract relevant entities for patient-identification and specifies extraction and normalization rules. The exact phrasing of the prompt can be found in Appendix~\ref{appendix:local_extraction_prompt}.
 
 
-\subsubsection{Context-Aware Entity Extraction}
+\subsubsection{Context-Aware Entity Extraction}\label{subsubsec:context_extract}
 The second extraction step is based on the results of local extraction. Here the model receives the document content together with a set of previously extracted normalized entities, referred to as $\texttt{existing\_entities}$. More specifically, $\texttt{existing\_entities}$ consists of a list of $(\texttt{normalized\_value}, \texttt{entity\_type})$ tuples. The previously set relevance of an entity is purposely left out to allow the LLM to set a new, unbiased relevance score.
 
 The prompt is modified to encourage the search for matches between the $\texttt{existing\_entities}$ and the document content. This provides context for the extraction, allowing the LLM to uncover entities that were not extracted in the first pass, but gained potential through cross-document recurrence. For example, a study mentioning a specific demographic (e.g. ``construction workers'') may not initially be considered sensitive. However, if another document links the same demographic to a medical condition, the combined information becomes more relevant for potential re-identification. By leveraging this context, the LLM becomes more sensitive to fragmented information and is able to create previously unseen links between documents. % TODO: improve example
@@ -86,15 +88,15 @@ Each entity is assigned a uniqueness score (Details regarding calculation in \re
 \[
     \texttt{filter\_score} \;=\; \texttt{max\_relevance} \cdot \texttt{uniqueness\_score}.
 \]
-Entities with a filter score below a chosen threshold (e.g. 0.3) are excluded from the context. The rationale for this design is twofold:
-\begin{itemize} % TODO: should i add that this was empirical? 
+Entities with a filter score below a chosen threshold (e.g. $0.3$) are excluded from the context. The rationale for this design is twofold:
+\begin{itemize}
     \item entities that occur frequently across documents are already sufficiently ``visible'' to be extracted without additional context, and
-    \item entities with extremely low relevance are typically too generic (e.g., broad locations such as ``Massachusetts'' or vague dates such as ``last year''), and thus rarely contribute meaningful information.
+    \item entities with low relevance are typically too generic (e.g., broad locations such as ``Massachusetts'' or vague dates such as ``last year''), and thus rarely contribute meaningful information.
 \end{itemize}
-This strategy ensures that only entities with relatively high uniqueness and relevance are added to the context for the second extraction step.
+This strategy ensures that only entities with sufficient uniqueness and relevance are added to the context for the second extraction step. % add refernce to hyperparam section.
 
 
-\subparagraph{Filtering by Entity Type}
+\subparagraph{Filtering by Entity Type}\label{subpar:type_filtering}
 Some high-risk entity types, such as direct identifiers (e.g., names, emails, addresses) are inherently sensitive regardless of the context. Therefore, including them in $\texttt{existing\_entities}$ provides little value for identifying previously overlooked entities. However, since these direct identifiers only make up a small fraction of all extracted entities, omitting them does not significantly reduce the length of the passed context.
 
 \subparagraph{Limiting the Number of Entities}
@@ -106,10 +108,10 @@ Another strategy is to impose a hard limit on the number of entities included in
 \end{itemize}
 
 % TODO add short text example?
-For the final implementation, a combination of heuristic reduction and type-based filtering was employed to balance context lenght with utility.
+For the final implementation, a combination of heuristic reduction and type-based filtering was employed to balance context length with utility.
 
 \subsection{Privacy Analysis}
-This section formalizes how, given the entities and their relevance, the pipeline quantifies the privacy risk on a single- and multi-document level. Potential privacy violations are detected and marked, allowing for targeted pseudonymization in later steps. 
+This section formalizes how, given the entities and their relevance, the pipeline quantifies the privacy risk on a single- and multi-document level. Potential privacy violations are detected and marked, allowing for targeted blurring in later steps. 
 
 \subsubsection{Uniqueness}\label{subsubsec:uniqueness}
 Uniqueness is a global property, that captures how rare an enityt is with respect to the entire document collection. Let $N$ be the number of documents and let an entity $e$ occur in $freq_e$ distinct documents. We define an IDF-inspired uniqueness score $u(e)\in[0,1]$:
@@ -146,66 +148,161 @@ This formula treats each entities contribution as independent for re-identificat
 To model cross-document linkage, we construct an undirected document graph $G=(D,E)$ where each node $d\in D$ represents one document. An edge $(d_i,d_j)\in E$ exists when both documents $d_i$ and $d_j$ share at least one entity. Each edge stores:
 \begin{itemize}
 \item $\texttt{via}(e)$: the set of shared entity IDs connecting both documents,
-\item $\texttt{strength}\in[0,1]$: a computed value describing the strength of the link between documents
+\item $\texttt{edge\_strength}\in[0,1]$: a computed value describing the strength of the link between documents
 \end{itemize}
-The edge strength is computed like the document risk, accumulating the \textit{per-entity contribution} of shared entities. We handle the potential difference in $\texttt{relevance}$ by choosing the higher relevance for the calculation. This results in the following formula:
+The \texttt{edge\_strength} is computed like the document risk, accumulating the \textit{per-entity contribution} of shared entities. We handle the potential difference in $\texttt{relevance}$ by choosing the higher relevance for the calculation. This results in the following formula:
 \[
 s_e(d_i, d_j) \; =\; max(\texttt{relevance}(e,d_i), \texttt{relevance}(e,d_j)) \cdot u(e) \cdot w_{type(e)}.
 \]
 The accumulation step is identical to the one defined in the section Document Risk \ref{subsubsec:document_risk}, resulting in the same desireable properties mentioned above.
 \[
-\texttt{strength}(d_i,d_j) \;=\; 1 - \prod_{e\in{via}}(1 - s_e(d_i,d_j))
+\texttt{edge\_strength}(d_i,d_j) \;=\; 1 - \prod_{e\in{via}}(1 - s_e(d_i,d_j))
 \]
-To reduce computational cost and noise, we prune the graph by removing egdes with $\texttt{strenght}$ below a user-specified threshold (e.g. $0.3$).
+
+Finally, we prune the graph by removing egdes with $\texttt{STRENGTH\_THRESHOLD}$ below a user-specified threshold (e.g. $0.3$). This reduces computational costs and prevents excessive anonymization of entities during later steps. 
+
 \subsubsection{Chain (Path) Risk}\label{subsubsec:chain_risk}
 Re-identification often requires gathering information across multiple documents. To quantify this risk, we extract all \textit{document chains} up to length $k$ (simple paths or multi-document subgraphs) and calculate their respective chain risk. Each \textit{document chain} consists of documents $d_1,\dots,d_k$ and the edges connecting them. All edges together create a set of entities we refer to as \textit{active entities}. During the anonymization step this set will be partially masked, leaving a reduced set of \textit{active entities}. All following calculations are based on this (potentielly masked) set.
 
-To calculate the Chain Risk $R_{\texttt{chain}}$ of length $k$, we compute a \emph{hop risk} for each edge/ hop $h$ within the chain $H$ and accumulate it using the complement-of-product formulation. The \textit{hop\_risk} of one hop $h$ between two documents $d_{i_h}$ and $d_{j_h}$ is defined as the edge strength scaled by the modified average of both document risks. The scaling captures how much the documents' internal risk amplifies the hop risk, allowing a low average document risk to reduce the \emph{hop risk} by up to 1/2. The exact formula goes:
+To calculate the Chain Risk $R_{\texttt{chain}}$ of length $k$, we compute a \emph{hop risk} for each edge/ hop $h$ within the chain $H$ and accumulate it using the complement-of-product formulation. The \textit{hop\_risk} of one hop $h$ between two documents $d_{i_h}$ and $d_{j_h}$ is defined as the \texttt{edge\_strength} scaled by the modified average of both document risks. The scaling captures how much the documents' internal risk amplifies the hop risk, allowing a low average document risk to reduce the \emph{hop risk} by up to 1/2. The exact formula goes:
 \[
 \texttt{hop\_risk}(h)\;=\; \texttt{edge\_strength} * \frac{1+\frac{R(d_{i_h}) + R(d_{j_h})}{2}}{2}
 \]
 \[
 R_{\texttt{chain}}(H) \;=\; 1 - \prod_{h\in H} (1 - \texttt{hop\_risk}(h))
 \]
+After obtaining all scores, each chain risk is evaluated and then categorized into a HIGH / MEDIUM / LOW category using $\texttt{RISK\_THRESHOLDS}$ which define the lowerbound for each category. Currently, this category serves as a way to validate the pipelines intermediate output. A possible setting is:
+\[
+\texttt{RISK\_THRESHOLDS} = \{\texttt{"HIGH"}: 0.75, \texttt{"MEDIUM"}:" 0.5\}
+\]
+
+\subsection{Selective anonymization}
+The final step of the pipeline performs selective anonymization of entities. Instead of a blanket redaction of all high-risk entities, this step aims to replace the smallest set of entities required to push both single and cross-document (chain) risk below configurable targets. This is realized using a two-stage redaction process: a minimal \textit{document level} redaction pass that removes the largest and most direct risks, followed by a \textit{chain-level} redaction pass, that targets residual chain risks. Throughout, a corpus wide, continuously updated \textit{replacement dictionary} records which entities require masking, ensuring that: (a) already masked entities are excluded from subsequent risk calculations and (b) replacements for entities remain consistent across the entire corpus.
 
 
-\subsection{Pseudonymization} % TODO adapt implementation to new system (first do document, then categorize , then get % based reduction rate) or maybe i should keep it like that, arguing that first stage is minimal, previously high risk documents still require stronger redaction, even if the score has dropped => better safe than sorry(?) 
-% NO, don't do that switch to first doc, then category, then reduction
-The final step of the pipeline is the selective pseudonymization. Instead of a blanket redaction of high risk entities, this step aims to replace the smallest set of entities required to push both single and cross-document (chain) risk below configurable targets. This is realized using a two-stage redaction process: a minimal \textit{document level} redaction pass that removes the largest, most direct risks, followed by a \textit{chain-level} redaction pass, that focusses on residual chain risks. A continuously updated \textit{pseudonym dictionary} records every masked entity so that (a) already masked entities are excluded from the following calculations and (b) replacements for entities are consistent across the entire corpus.
-
-
-\paragraph{Global entity contribution} For prioritization during selection, we compute a global contribution score for every entity $e$:
-
+\paragraph{Global entity contribution} 
+To prioritize candidates we compute a global importance for each entity \(e\):
 \[
 \mathrm{imp}(e) \;=\; \max_{d\in\mathrm{docs}(e)} (\texttt{relevance}(e,d)) \cdot u(e) \cdot w_{type(e)}
 \]
-
+where $\texttt{relevance}(e,d)$ is the per-document utility for re-identification, $u(e)$ the corpus-wide uniqueness (Section~\ref{subsubsec:uniqueness}), and $w_{type(e)}$ the type-specific risk weight (Table~\ref{tab:entity-weight-schema}). This score is primarily used to rank entities during greedy selection algorithms.
 
 \subsubsection{Document-level redaction}
-We begin with redacting entities on a per document basis. For a document $d$ we iteratively select the highest-$\mathrm{imp}$ entity that is still unmasked, update the \textit{pseudonym dictionary} and recalculate the document risk. This greedy algorithm continues until the risk score is puhsed below a threshold $\theta_{\mathrm{doc}}$ (e.g., $0.95$) or no further entities remain.\\
-The goal of this stage is the \textit{minimal} removal of the most dominant privacy threats (direct identifiers). Therefore, greedy selection is appropriate because the immediate privacy threat coming from each document has to be removed. Other, more nuanced selection strategies might risk redacting several low risk entities to preserve a single high risk entity, leading to leakage. 
+We begin with redacting entities on a per document basis. For each document $d$ we iteratively select the highest-$\mathrm{imp}$ unmasked entity, calculate its pseudonym, update the \textit{replacement dictionary} and recalculate the document risk on the reduced set of entities. This greedy algorithm continues until the risk score is pushed below a threshold $\theta_{\mathrm{doc}}$ (e.g., $0.95$) or no further entities remain.
+\paragraph{Rationale.} This stage removes the most dominant per-document threats (typically direct identifiers). A greedy selection strategy is appropriate here, as it is fast and focusses only on entities with high $\mathrm{imp}$ scores. More nuanced selection at this stage risks protecting a single high-risk entity by masking multiple low-risk ones, going against our objective of preventing a single document from allowing re-identification.
+
 
 \subsubsection{Chain-level redaction}
+After completing the document-level redaction, we recompute chain risks based on the updated \textit{replacement dictionary} and finalizes chain categories (HIGH / MEDIUM / LOW). Acting on previously calculated categories would impose strong reductions on chains that were already neutralized by the first stage. For chains which remain above policy targets we continue selecting entities to blur with the following stopping rule: 
+\[
+\texttt{stop when}\quad R_{chain}^{new} \le \theta_{chain} \quad \texttt{and} \quad R_{chain}^{new} \le \rho_{risk\_level}\,R_{chain}^{pre},
+\]
 
+$\theta_{chain}$ acts as an absolute ceiling (e.g. $0.60$) and $\rho_{risk\_level}$ as a category-specific relative reduction, e.g.
+\[
+\rho_{risk\_level} = \{\texttt{HIGH}:0.70,\ \texttt{MEDIUM}:0.90\},
+\]
+This hybrid approach prevents any chain from being above a certain risk using the absolute ceiling, while the relative rule enforces a meaningful reduction of chain risk onto all chains, further ensuring privacy preservation.
 
-
-
-Using a greedy algorithm that iteratively selects the entity with the highest importance $\mathrm{imp}$ to redact, until the risk score is pushed below a threshold (e.g. 0.95). This avoids any single document from being able to re-identify an individual. Other, more nuanced, selection strategies were not employed % because this is only the first step and hsould get rid of the biggest threats, keep redaction minimal to keep utility and avoid over redaction how should i formulate
-
-\subsubsection{Chain-level redaction}
-The redaction of connecting entities prevents the gathering of information across multiple documents. With the worst privacy threats removed after stage one, this stage focusses on optimizing redactions to preserve utiltiy. Compared to stage one, a fraction-based limit is introduced, depending on the risk level assigned to the chain. EXAMPLE: keep\_ratio: Dict = {"HIGH": 0.70, "MEDIUM": 0.90}. 
-
-The following selection strategies were explored:
+\paragraph{Selection strategies.}
+At chain level we consider the following selection strategies:
 \begin{itemize}
-\item \textbf{Greedy:} iteratively mask the highest contributing entity and recompute affected risks until targets are met,
-\item \textbf{Knapsack-based:} model the problem of selecting a minimal set of entities that achieves a required risk reduction as a 0/1 knapsack-like optimization and solve with dynamic programming (computationally expensive!!)
+  \item \textbf{Greedy.} Iteratively mask the current highest-impact entity ($\mathrm{imp}(e)$), recompute affected document and chain risks and repeat until the stopping conditions are met. This is fast and scales to large corpora.
+  \item \textbf{Knapsack–style.} Reformulate finding the smallest set of entities to achieve the required risk reduction as a \textit{0/1 knapsack}-like problem. We calculate the required target reduction, the impact of blurring each entity and optimize for the minimum required set using dynamic programming. This approach yields better minimality guarantees and therefore we expect higher utility, but is computationally expensive for higher candidate counts.
 \end{itemize}
 
 
-Final step is taking the updated \textit{pseudonym dictionary} and redacting the entities by matching to original values and replacing with pseudonym. 
+\subsubsection{Pseudonym generation and replacement}
+Using the finalized \textit{replacement dictionary} we perform the redaction. Depending on the domain and downstream task, one might choose different anonymization strategies. Our pipeline supports 
+\begin{enumerate}
+  \item \textbf{Complete redaction} (redact using placeholder \texttt{[REDACTED]}): Ensures high safety, but removes type information, potentially degrading retrieval and LLM reasoning.
+  \item \textbf{Value redaction} (redact using type label, e.g., "Jane Doe"$\rightarrow$\texttt{[NAME]}): Preserves approximate semantics of an entity without retaining linkable identity.
+  \item \textbf{Pseudonymization} (redact using pseudonyms, e.g., $\texttt{[NAME\_{hash}("JANE DOE")]}$): Preserves references across mentions, but also preserves cross–document linkability. 
+  \item \textbf{LLM rewriting}. Instruct a model with rewriting while omitting selected entities. Difficult to audit as document structure might change and hallucinations might appear.  
+\end{enumerate}
+
+We adopt \textbf{value redaction} as the default as (i) it maintains the semantic role of an entity for downstream tasks while breaking up cross-document linkability that pseudonymization would retain. \textbf{Pseudonymization} could be used in scenarios, where consistency of references to entities are important, even when the value itself is not available and don't increase the privacy risk significantly. An example would be internal process IDs with low external linkage potential. When pseudonyms are used, they are deterministically generated by appending their hashed entity id to their type, allowing corpus wide consistent referencing while keeping the semantic of an entity: 
+\[
+    \texttt{pseudonym}(e) \;=\; e.type \vert hash(e.id)
+\]
+For strategy 1 - 3 the we perform whole-word, case-insensitive matching of extracted original values (Section \ref{lst:entity-output-schema}) to documents containing the entities.
+
+ 
+\subsection{Hyperparameters} 
+In this section we will provide reasoning and evidence for hyperparameters. A small train-dataset is generated using a python script we introduce in the chapter Evaluation (Section \ref{subsec:datagen}). This train-dataset includes 5 sets of documents (also called "clusters"), with each set containing 3-6 documents for a total of 29. Each cluster thematically focusses on one topic and "hides" one person, which will become relevant during the evaluation.
+
+We plan a multi-stage tuning process, evaluating the performance of the model using three checkpoints in the pipeline. At each checkpoint, the models output is compared to an expected answer using a similarity measure. To obtain this expected answer the dataset is manually annotated.
+
+\subsubsection{Tuning: Context Entity Filtering}
+The goal of this section is to find the appropriate settings for filtering the context entities before the second extraction stage. The context passed to the second extraction step must contain all relevant entities required to uncover cross-document links, while being compact enough to avoid prompt bloat and a potential degradation in performance. 
+
+As a baseline, we manually extract the entities from each document that the Entity Extractor might deem relevant for re-identification or linking. This baseline is then compared against the output of the pipeline after the Context-Aware Entity Extraction (see Section~\ref{subsubsec:context_extract}). 
+
+We evaluate the quality of entity filtering using \textit{ROUGE-1 F1} on a per-document basis and average the results to obtain the final score for a given filter setting. \textit{ROUGE-1 F1} is chosen because it provides a balanced trade-off between precision and recall, ensuring that missing relevant entities (low recall) and too many irrelevant ones (low precision) are penalized. This suits our task, as both types of errors degrade linking quality by either failing to capture links  between documents or introducing noise.
+
+The configurable parameters in our implementation are: 
+\begin{itemize}
+    \item the strength of the heuristic filter \texttt{ENTITY\_FILTER\_STRENGTH} (continuous between 0 and 1),
+    \item the use of type-based filtering (enabled/disabled).
+\end{itemize}
+
+It should be noted that, due to the stochastic nature of LLMs, results can vary between runs. To combat this issue, we run each threshold configuration three times and average their scores. This stabilizes some fluctuations, but still isn't enough to prevent them entirely. Additionally, the current train-dataset is too small to cause potential degradation during the second stage, resulting in high scores for low or no filtering thresholds. Therefore we only focus on finding the highest threshold that contains most of the relevant entities.
+
+\begin{figure}[h]
+    \centering
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/c1_type_filter_scores.pdf}
+        \caption{\textit{ROUGE-1 F1} across thresholds.}
+        \label{fig:type_filter_scores}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[b]{0.48\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{figures/c1_entity_counts.pdf}
+        \caption{Entity counts across thresholds.}
+        \label{fig:entity_counts}
+    \end{subfigure}
+    \caption{Comparison of type-based and non-type-based filtering. 
+    (a) shows performance using \textit{ROUGE-1 F1} while (b) illustrates the corresponding entity counts.}
+    \label{fig:entity_filtering} 
+\end{figure}
+
+Graph (a) shows that the \texttt{ENTITY\_FILTER\_STRENGTH} is inversely correlated with the extraction quality of the second extraction stage. Both lines (orange \& blue) stay consistent and start to drop off around 0.4. Regardless of the type-filter setting the extraction performance stays similar across all thresholds, indicating that the assumption made earlier (Section \ref{subpar:type_filtering}) was correct. As a result we select $\texttt{ENTITY\_FILTER\_STRENGTH} < 0.4$ and activate filtering by entity type to reduce the number of context entites.
+
+Justification of the two-stage extraction can be found when comparing the green horizontal line (results after first extraction stage) with the results from the second extraction stage. The horizontal line consistently lies below the stage two results, only coming close when the filter removes almost all context-entities. 
+
+\subsubsection{Tuning: Graph Construction and Chain Risk}
+We attempt to find the optimal parameters to extract all required \textit{document chains} which might be useful for reidentification. First, we measure the quality by comparing the number of connections between documents from the same cluster (intra-cluster connection) and documents from different clusters (inter-cluster connection). We aim to minimize inter-cluster connections while preserving most of the relevant intra-cluster connections.
+
+The configurable parameter in this case is the \texttt{EDGE\_STRENGTH\_THRESHOLD}, which removes edges with too little strength. These are often inter-cluster connections, as documents about different topics typically share less entities. Removing these weak links prevents over-anonymization during the anonymization of entities. For example: three documents \textit{doc1, doc2, doc3} form a chain, \textit{doc1, doc2} are strongly linked with a weak link to \textit{doc3}. If an entity is blurred in \textit{doc1, doc2} it will also be blurredin doc3, despite \textit{doc3} not being a risk, therefore potentially harming utility without improving privacy.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/c2_cluster_connections_counts.pdf}
+    \caption{Graph connections across \texttt{EDGE\_STRENGTH\_THRESHOLD}}
+    \label{fig:strength_connection_counts}
+\end{figure}  
+
+For this train-dataset, a reasonable interval for the \texttt{EDGE\_STRENGTH\_THRESHOLD} is $[0.2,0.5]$. Within this interval a healthy number of intra-cluster connections remain, while inter-cluster connections drop steadily. 
+
+Using this interval as a starting point, we perform a grid-search including the surrounding intervals to find a final setting for the \texttt{EDGE\_STRENGTH\_THRESHOLD} and the optimal value for the \texttt{RISK\_THRESHOLD}. For simplicity we focus on the threshold defined for "MEDIUM", as all \textit{document chains} above this threshold will be added as risks. We aim to find out whether the pipeline was able to identify and keep all relevant connections between documents up until this point. Our similarity measure is the F1-Score between all \textit{document chains} marked as dangerous by the pipeline and the hand-labeled \textit{document chains}. 
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.7\textwidth]{figures/c2_f1_comparison.pdf}
+    \caption{F1 Score for different combinations of $\texttt{RISK\_THRESHOLD}$ and $\texttt{EDGE\_STRENGTH\_THRESHOLD}$}
+    \label{fig:f1_chain_score}
+\end{figure} 
+
+Out of all different combinations, the setting: $\texttt{EDGE\_STRENGTH\_THRESHOLD} = 0.5$ performs the best, with a maximum F1-Score of 0.776. Unexpectedly, this F1-Score is constant in the interval $\texttt{RISK\_THRESHOLD} \in [0.0,0.5]$, suggesting that for this example the pipeline didn't extract lower-risk chains which could be filtered out by setting $\texttt{RISK\_THRESHOLD}$ below $0.5$. Afterwards it begins to fall, indicating that relevant chains are being filtered out. We use this setting as our final setting for the pipeline. The reported Recall and Precision can be found in the appendix () % TODO add reference to appendix and add two c2 graphs
+
+\subsubsection{Tuning: Anonymization Thresholds}
+The following section focusses on the the anonymization thresholds $\theta_{doc}$ and $\theta_{chain}$. We skip an extensive search for optimal $\rho_{risk\_level}$ as this relative reduction is only applied as an additional measure to increase privacy. 
+Again, we have defined a set of entities which we deem, when redacted, provide sufficient privacy protection.
 
 
-\subsection{Hyperparameters}
-\section{RQ1: Can a static system model and cross-document linkage sufficiently}
+
+\section{RQ1: Can the proposed pipeline model and cross-document linkage sufficiently}
 
 
