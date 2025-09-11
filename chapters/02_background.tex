@@ -1,11 +1,32 @@
 % !TeX root = ../main.tex
 \chapter{Background and Threat Model}\label{chapter:background}
-This section relies heavily on the definition presented in [Exploring Privacy issues in RAG].
+This section relies heavily on the definition presented in \cite{goodAndBad}.
+
 \section{Standard RAG Pipeline}
-The Retrieval-Augmented Generation (RAG) system consists of a large language model $M$, a retrieval dataset $D$ and a retriever $R$. To answer a query $q$, the retriever $R$ fetches the $k$ most relevant documents from $D$. The relevance of a document to a query is typically measured by calculating the similarity or distance between the query embedding $e_q$ and the document embedding $e_d$. Formally:
+A \ac{RAG} system consists of a \ac{LLM} $M$, a retrieval dataset $D$ and a retriever $R$. To answer a query $q$, the retriever $R$ fetches the $k$ most relevant documents from $D$. The relevance of a document to a query is typically measured by calculating the similarity or distance between the query embedding $e_q$ and the document embedding $e_d$. Formally:
 \[R(q,D) = \{d_1,d_2,..., d_k\} \mbox{ with } dist(e_q, e_{d_i}) \mbox{ for } i \in \{1...k\} \mbox{ in the top } k\]
 Common similarity measures include cosine or L2. Given the $k$-most relevant documents the answer $a$ is generated using the language model $M$ by combining the retrieved documents with the query. $$a = M(R(q,D)\vert\vert q)$$
-\section{Taxonomies}
 
-\section{Threat Model} 
-For the adversary we assume a black-box scenario, where the attacker's access to the model is limited to API queries. Therefore the attacks are limited to carefully designed queries accumulate responses over multiple sessions.
+\section{Threat Model}\label{background-sec:threat-model}
+For the adversary we assume a black-box scenario, where the attacker's access to the model is limited to API queries. Therefore the attacks are limited to carefully designed queries to accumulate responses over multiple requests.
+
+\section{Taxonomies}
+We collect privacy concepts that will be reused throughout this thesis, focusing on the forms of identifiers, transformation approaches, and leakage granularity that matter for \ac{RAG}.
+
+\paragraph{Direct vs.\ quasi-identifiers.}
+Direct identifiers uniquely determine an individual on their own (e.g. full names, exact addresses, SSN, national ID). Quasi-identifiers are combinations of attributes that are often non-unique individually but become highly identifying when linked (e.g., \textit{date of birth}, \textit{ZIP code}, \textit{gender}). Privacy research regarding re-identification shows that seemingly innocuous fragments can enable linkage. The most famous examples include the Netflix Prize de-anonymization via cross-linking ratings with external data and Sweeney's "Simple Demographics Often Identify People Uniquely". \cite{netflixDeAnon}\cite{simpleDemographic}
+
+\paragraph{Single-document vs.\ cross-document leakage.}
+Existing benchmarks and defenses focus on single-document leakage, i.e., preventing a single retrieved passage from leaking it's sensitive data (e.g. identifiers of a person).\cite{ragSAGE}\cite{goodAndBad}  However, many realistic risks arise from \textit{cross-document leakage}: an  adversary aggregates non-sensitive or partially sensitive fragments (often quasi-identifiers) across multiple retrieval rounds to re-identify a person. \\
+Because RAG systems can reveal different context snippets across queries \cite{ragThief}, linkage attacks can compound small leaks into a high-confidence identification.
+This motivates modelling and evaluating cross-document leakage separately with dedicated benchmarks and mechanisms that consider aggregation and linkability signals rather than only per-document leakage.
+
+
+\paragraph{Anonymization vs.\ pseudonymization (GDPR).}
+Under GDPR, anonymization refers to transforming data such that individuals can no longer be associated with the data. It implies practical irreversibility and unlinkability. Pseudonymization , by contrast, is defined as "the processing of personal data in such a manner that the personal data can no longer be attributed to a specific data subject without the use of additional information".\cite{anonDefinition} In practice it replaces identifiers with stable tokens, preserving linkability across records for the same subject.\\
+In \ac{RAG} corpora, pseudonymization (e.g. consistent tokens per-entity) can reduce direct leakage but may still enable cross-document linkage via persistent pseudonyms and residual quasi-identifiers, whereas anonymization (e.g. replacing names/addresses with generic placeholders such as [NAME] or [REDACTED] or completely removing them) aims to break both direct identification and cross-document linkability.
+
+
+
+
+

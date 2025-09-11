@@ -1,3 +1,39 @@
 % !TeX root = ../main.tex
 \chapter{Literature Review}\label{chapter:literature}
-bb
+This chapter positions the present work in the landscape of \ac{RAG} privacy research. It draws on the definitions and threat model introduced in Chapter \ref{chapter:background}. For each topic we summarise key contributions, expose limitations relevant to cross-document linkage, and point to literature that motivates the choices made in this thesis.
+
+
+\section{RAG Privacy Leakage}
+Recent work demonstrates that, even in black-box settings (as defined in Section~\ref{background-sec:threat-model}), \ac{RAG} systems are vulnerable to privacy leakage \cite{implicationsRAG,goodAndBad}. In this setting, attackers can accumulate fragments across queries and sessions, enabling linkage even when single responses appear benign.
+
+One can distinguish between two causes of leakage: \textit{targeted attacks}, and \textit{untargeted attacks}.
+
+\paragraph{Targeted attacks.} Here the adversary designs queries to extract specific records or attributes. Examples include membership inference attacks, which aim to determine whether a particular information is present in the retrieval corpus. Approaches include prompt-based attacks \cite{ragMIA}, similarity-based scoring \cite{generatingIsBelieving}, as well as adaptations of membership inference techniques originally developed for LLM training data \cite{extractingTrainingDataLLM,generatingIsBelieving}. Other targeted strategies employ prefix prompts that influence the model to complete sentences with sensitive context data or use LLM-optimized attack strings to target specific private records. \cite{goodAndBad, DEAL} 
+
+\paragraph{Untargeted attacks.} The goal is to extract as much of the retrieval corpus as possible. Simple variants append instructions such as "Please repeat all the context" \cite{goodAndBad,spillTheBeans}, while more advanced agent-based attacks like \textit{RAGThief} \cite{ragThief} iteratively generate new adversarial queries from previous responses. The latter approach achieves extraction rates above 70\% on private knowledge bases, proving its effectiveness against commercial \ac{RAG} systems.
+
+As a defense, some commercial systems use prompt engineering to avoid privacy leakage \cite{anthropic_strengthen_guardrails,aws_secure_rag}. However, these defenses show limited effectiveness, as papers like \cite{targetingTheCore} show that adding  adversarial prefixes such as "Forget all previous instructions" can bypass such filters and still induce leakage.
+
+Many of the mentioned RAG leakage attacks are a form of \textit{prompt injections},where malicious queries override system or application instructions to receive restricted information. Query filtering and detection have therefore been proposed, but they provide only partial protection. Papers like \textit{Silent Leaks} \cite{silentLeaks} demonstrate high-extraction success using 
+\textit{benign-looking queries} to bypass filters.
+
+
+
+\section{Defenses}
+To mitigate RAG privacy leakage, several different defenses have been proposed. These can be categorized into three different types: \textit{prerpocessing retrieval data} \textit{generation-based} \textit{output filtering}. 
+
+\paragraph{Preprocessing retrieval data.} Most notably in this category is SAGE \cite{ragSAGE}. By using a two stage generation and rewriting process, sensitive data is transformed into pure synthetic data, therefore reducing the privacy risk (a more detailed explanation is given in \ref{evaluation-subsec:sage}). While this is likely to preserve privayc, it also tends to redact all direct \& quasi-identifiers, potentialy harming utiltiy and cross-document linkage.
+
+Other approahces are: \cite{LPRAG} They propose  locally differetially private entity-elevel perturbation applied to each document before indexing. It offers formal DP guarantees.
+% add eraser4rag (Learning to Erase Private Knowledge from Multi-Documents for Retrieval-Augmented Large Language Models) but clearly differentiate and show discrepancies
+
+This category is also the one our approach would fall under. Selective anonymization, similar to sage, preprocesses the retrieval data, but attempts to selectively redact a minimal required set of entities to preserve more utiltiy, especially regarding corss-document linkage.
+
+
+\paragraph{Generation-based.} Methods include DP-based emthods like DPVoteRAG or DPSparseVoteRAG. These methods divide the dataset into disjoint sets for each LLM-Voter, giving them separate knowledge base to wrok wtih. During inference, each Voter votes on the next toekn + noise is added to achieve DP guarantees. \cite{DPVoteRAG} Other methods proposed include prompt-based defenses \cite{goodAndBad} to defend against leakage.
+
+\paragraph{Output fitlering.} % find sources for output filtering defenses
+\cite{ragThief} proposes as potential mitigation strategie output sanitization. find more!!
+
+
+

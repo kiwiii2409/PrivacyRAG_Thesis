@@ -9,7 +9,7 @@
 \usepackage[%
   backend=biber,
   url=false,
-  style=alphabetic,
+  style=numeric,
   maxnames=4,
   minnames=3,
   maxbibnames=99,
@@ -28,6 +28,22 @@
 \usepackage[printonlyused]{acronym}
 \usepackage{ifthen}
 \usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{tcolorbox}          %
+\tcbuselibrary{breakable}
+\tcbuselibrary{skins} % loads 'enhanced'
+\tcbset{
+  colback=white,
+  colframe=gray!20,  % Lighter gray frame
+  coltext=black,      % Black text
+  coltitle=black,
+  sharp corners,
+  before skip=6pt,
+  after skip=6pt,
+  breakable,
+  enhanced
+}
+
 
 
 \hypersetup{hidelinks} % removes colored boxes around references and links
