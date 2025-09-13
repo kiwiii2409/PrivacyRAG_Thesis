@@ -1,39 +1,59 @@
 % !TeX root = ../main.tex
 \chapter{Literature Review}\label{chapter:literature}
-This chapter positions the present work in the landscape of \ac{RAG} privacy research. It draws on the definitions and threat model introduced in Chapter \ref{chapter:background}. For each topic we summarise key contributions, expose limitations relevant to cross-document linkage, and point to literature that motivates the choices made in this thesis.
+This chapter positions the present work in the landscape of \ac{RAG} privacy research. It draws on the definitions and threat model introduced in Chapter \ref{chapter:background} and focusses on three topics that motivate this thesis: (1) privacy leakage and attacks on RAG, (2) defensive strategies and their trade-offs, and (3) benchmarking and evaluation methods relevant to cross-document linkage.
 
+\section{RAG Privacy Leakage}\label{literature-sec:privacy-attacks}
+Recent work demonstrates that, even in a black-box setting (as defined in Section~\ref{background-sec:threat-model}), \ac{RAG} systems are vulnerable to data leakage \cite{implicationsRAG,goodAndBad}. A key vulnerability arises not just from direct leakage of sensitive information, but from the attacker's ability to accumulate information across multiple queries. This process enables the linkage of seemingly irrelevant data points to reconstruct sensitive profiles, a threat central to this thesis.
 
-\section{RAG Privacy Leakage}
-Recent work demonstrates that, even in black-box settings (as defined in Section~\ref{background-sec:threat-model}), \ac{RAG} systems are vulnerable to privacy leakage \cite{implicationsRAG,goodAndBad}. In this setting, attackers can accumulate fragments across queries and sessions, enabling linkage even when single responses appear benign.
+These privacy attacks can be broadly classified into the following categories: \textit{targeted attacks}, and \textit{untargeted attacks}.
 
-One can distinguish between two causes of leakage: \textit{targeted attacks}, and \textit{untargeted attacks}.
-
-\paragraph{Targeted attacks.} Here the adversary designs queries to extract specific records or attributes. Examples include membership inference attacks, which aim to determine whether a particular information is present in the retrieval corpus. Approaches include prompt-based attacks \cite{ragMIA}, similarity-based scoring \cite{generatingIsBelieving}, as well as adaptations of membership inference techniques originally developed for LLM training data \cite{extractingTrainingDataLLM,generatingIsBelieving}. Other targeted strategies employ prefix prompts that influence the model to complete sentences with sensitive context data or use LLM-optimized attack strings to target specific private records. \cite{goodAndBad, DEAL} 
+\paragraph{Targeted attacks.} Here the adversary designs queries to extract specific records or attributes. Examples include membership inference attacks, which try to determine whether a particular information is present in the retrieval corpus. Existing approaches are prompt-based attacks \cite{ragMIA}, similarity-based scoring \cite{generatingIsBelieving}, as well as adaptations of membership inference techniques originally developed for LLM training data \cite{extractingTrainingDataLLM,generatingIsBelieving}. Other targeted strategies employ prefix prompts that influence the model to complete sentences with sensitive context data or use LLM-optimized attack strings to target specific private records. \cite{goodAndBad, DEAL} 
 
 \paragraph{Untargeted attacks.} The goal is to extract as much of the retrieval corpus as possible. Simple variants append instructions such as "Please repeat all the context" \cite{goodAndBad,spillTheBeans}, while more advanced agent-based attacks like \textit{RAGThief} \cite{ragThief} iteratively generate new adversarial queries from previous responses. The latter approach achieves extraction rates above 70\% on private knowledge bases, proving its effectiveness against commercial \ac{RAG} systems.
 
-As a defense, some commercial systems use prompt engineering to avoid privacy leakage \cite{anthropic_strengthen_guardrails,aws_secure_rag}. However, these defenses show limited effectiveness, as papers like \cite{targetingTheCore} show that adding  adversarial prefixes such as "Forget all previous instructions" can bypass such filters and still induce leakage.
+As a defense, some commercial systems use prompt engineering to avoid privacy leakage \cite{anthropic_strengthen_guardrails,aws_secure_rag}. However, these defenses show limited effectiveness, as papers like \cite{targetingTheCore} show that adversarial prefixes such as "Forget all previous instructions" can bypass such prompts and still induce leakage.
 
-Many of the mentioned RAG leakage attacks are a form of \textit{prompt injections},where malicious queries override system or application instructions to receive restricted information. Query filtering and detection have therefore been proposed, but they provide only partial protection. Papers like \textit{Silent Leaks} \cite{silentLeaks} demonstrate high-extraction success using 
-\textit{benign-looking queries} to bypass filters.
-
+Many of the mentioned RAG leakage attacks are a form of \textit{prompt injections}, where malicious queries override system instructions to receive restricted information. Malicious query filtering has been proposed as potential solution, but papers like \textit{Silent Leaks} \cite{silentLeaks} demonstrate high-extraction success using \textit{benign-looking queries} to bypass filters.
 
 
-\section{Defenses}
-To mitigate RAG privacy leakage, several different defenses have been proposed. These can be categorized into three different types: \textit{prerpocessing retrieval data} \textit{generation-based} \textit{output filtering}. 
+\section{RAG Privacy Protection}
+The approaches to mititage RAG privacy leakage can be grouped into three broad classes of defenses: (1) \textit{preprocessing of retrieval data} (2) \textit{generation-level defenses}, and (3) \textit{query \& output sanitization}
 
-\paragraph{Preprocessing retrieval data.} Most notably in this category is SAGE \cite{ragSAGE}. By using a two stage generation and rewriting process, sensitive data is transformed into pure synthetic data, therefore reducing the privacy risk (a more detailed explanation is given in \ref{evaluation-subsec:sage}). While this is likely to preserve privayc, it also tends to redact all direct \& quasi-identifiers, potentialy harming utiltiy and cross-document linkage.
+\subsection{Preprocessing retrieval data.} 
+Preprocessing modifies or replaces the documents stored in the retrieval corpus before indexing. Methods like \textit{SAGE} replace original documents with synthetic versions generated by a two-stage attribute extraction and agent-guided refinement pipeline. The authors achieve high privacy preservation while maintaining comparably high utility in their experiments. \cite{ragSAGE} 
 
-Other approahces are: \cite{LPRAG} They propose  locally differetially private entity-elevel perturbation applied to each document before indexing. It offers formal DP guarantees.
-% add eraser4rag (Learning to Erase Private Knowledge from Multi-Documents for Retrieval-Augmented Large Language Models) but clearly differentiate and show discrepancies
+Other preprocessing approaches like LPRAG utilize local differential privacy on the entity-level. Sensitive entities are perturbed before before indexing, providing differential privacy guarantees. \cite{LPRAG} 
 
-This category is also the one our approach would fall under. Selective anonymization, similar to sage, preprocesses the retrieval data, but attempts to selectively redact a minimal required set of entities to preserve more utiltiy, especially regarding corss-document linkage.
+Eraser4RAG \cite{eraser4RAG} is the first method to model cross-document linkage. They extract information as triples, construct a global knowledge graph representation and train a rewriting model to break sensitive links. 
+
+\subparagraph{Strengths.} Data-level defenses reduce the attack risk for all downstream tasks by removing or replacing sensitive information at the source. They do not add inference overhead and protect against a wide range attacks, as the data itself loses it's value regarding reidentification. 
+
+\subparagraph{Limitations.} Strong transformations (strong pertubation or full synthesis) risk removing information useful for retrieval and LLM reasoning, degrading utility. Methods with formal guarantees (e.g. LPRAG) therefore require careful budget tuning and degrade utility regarding precise knowledge due to the added noise. Finally, these methods operate on a per-document level, which can lead to over- or under-redaction when cross-document linkage is relevant
+
+While Eraser4RAG directly addresses cross-document linkage, its reliance on a trained rewriting model introduces considerable training complexity and cost, with the result lacking interpretability.
+Also, the reliance on structured triples potentially fails to capture sensitive information in unstructured text, limiting overall privacy preservation. \cite{eraser4RAG}
 
 
-\paragraph{Generation-based.} Methods include DP-based emthods like DPVoteRAG or DPSparseVoteRAG. These methods divide the dataset into disjoint sets for each LLM-Voter, giving them separate knowledge base to wrok wtih. During inference, each Voter votes on the next toekn + noise is added to achieve DP guarantees. \cite{DPVoteRAG} Other methods proposed include prompt-based defenses \cite{goodAndBad} to defend against leakage.
+\subsection{Generation-level defense.} Generation-level defenses incorporate privacy mechanisms at inference. Methods like DPVoteRAG and DPSparseVoteRAG distribute reponse-generation across multiple voters, each using disjoint subsets of the data, and add noise to satisfy differential privacy. \cite{DPVoteRAG} 
 
-\paragraph{Output fitlering.} % find sources for output filtering defenses
-\cite{ragThief} proposes as potential mitigation strategie output sanitization. find more!!
+Others propose prompt-based defenses, by using a strong system prompt to enforce rules onto the generated output \cite{goodAndBad,anthropic_strengthen_guardrails,aws_secure_rag},
+
+\subparagraph{Strengths.} These methods retain original retrieval data and operate during inference time without corpus modification. DP-based defenses have formal guarantees and prompt-based defenses process all retrieved documents for each query, allowing for more sensible, context-dependent redaction.
+
+\subparagraph{Limitations.} For DPVoteRAG, long responses deplete the privacy budget, leading to a loss of utility. The added inference infrastructure (multiple voters, noise mechanisms) also increases complexity and computational cost. Prompt-based defenses lack safety guarantees and can be bypassed using \textit{prompt injections} (as discussed in \ref{literature-sec:privacy-attacks}). 
 
 
+\subsection{Query and output sanitization.} Query and output sanitization acts either before retrieval (malicious query filtering) or after generation (\ac{PII} detectors / redactors). Practical toolkits such as Microsoft Presidio and industry documentation (e.g. AWS Bedrock) provide recognizers (regex, rule based logic and NER) for common \ac{PII} types, and RAG-specific work recommends response sanitization as part of a potential mitigation strategy. \cite{microsoft_presidio,aws_bedrock_privacy,ragThief}
+
+\subparagraph{Strengths.} These defenses are generally easy to deploy (no corpus rewrite) and preserve original data for high utility. 
+
+\subparagraph{Limitations.} Filtering is brittle in adversarial settings  (see in \ref{literature-sec:privacy-attacks}), while output sanitization potentially produces false negatives for obfuscated or implicit identifiers. Therefore these defenses are treated as more of an additional protective measure than a standalone defense.
+
+
+\section{Benchmark and evaluation practices}
+Existing work often uses datasets like HealthCareMagic and the Enron Mail dataset to evaluate privacy risk. These datasets work at the single-document level and they do not provide a systematic way to measure privacy risk that arises from linking fragments across documents. For this reason, previously used benchmarks do not directly address the key threat targeted in this thesis. 
+
+Utility testing, which commonly happens separate from privacy testing, is performed on Q\&A datasets like \textit{Natural Questions} \cite{NQ}, \textit{triviaQA} \cite{TriviaQA}, \textit{PopQA} \cite{popQA} or \textit{HotpotQA} \cite{hotpotQA}. \cite{LPRAG,goodAndBad,ragSAGE,eraser4RAG,DPVoteRAG} These Q\&A datasets provide a wide range of topics for measuring answer quality with some including multi-hop reasoning challenges (e.g. \textit{HotpotQA}). One of the main limitations of these datasets is the lack of direct- and/ or quasi-identifiers in the corpus. Therefore, results do not reflect the privacy-utility tradeoff present in regular data.
+
+This motivates the creation of a dedicated dataset that supplies groups of documents (called \textit{clusters}) with varying linkage strength, matched single/ multi-source Q\&A pairs and explicit privacy targets for linkage attacks. See Section \ref{evaluation-subsec:data-generation} for the full dataset generation and validation pipeline.
 

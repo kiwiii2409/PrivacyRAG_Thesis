@@ -375,10 +375,6 @@ RESPOND WITH ONLY THE FOLLOWING SCHEMA! ONLY RESPOND WITH VALID JSON:
 \end{lstlisting}
 \end{tcolorbox}
 
-
-         
-
-
 \section*{Miscellaneous}
 \subsection*{Data Generation RISK-level specifications}\label{appendixB:risk-specifications}
 \begin{table}[h]
@@ -408,5 +404,37 @@ EVENT                & x & x & x \\
 PROVIDER             & x & x & x \\
 TREATMENT            & x & x & x \\
 \hline
+\end{tabular}
+\end{table}
+
+
+\subsection*{Experiments: Entity Leakage per Type}\label{appendixB:entity-leak-per-type}
+This table compares the number of leaked entities for all baselines. Potential errors due to regex-filtering failing for targeted attacks, leading to false positives. 
+\begin{table}[h!]
+\centering
+\caption{Leakage by type for each baseline}
+\label{evaluation-tab:type_leakage}
+\begin{tabular}{l c c c c}
+\toprule
+\textbf{entity\_type} & \textbf{total number} & \textbf{std\_RAG} & \textbf{sAnon} & \textbf{SAGE} \\
+\midrule
+ADDRESS & 11 & 11 & 2 & 0 \\
+AGE & 20 & 20 & 15 & 9 \\
+BIRTHDATE & 18 & 17 & 1 & 0 \\
+DEMOGRAPHIC & 18 & 18 & 17 & 10 \\
+EMAIL & 5 & 2 & 2 & 0 \\
+EVENT & 17 & 12 & 14 & 9 \\
+EVENT\_DATE & 72 & 58 & 42 & 37 \\
+INDIRECT\_IDENTIFIER & 10 & 9 & 7 & 4 \\
+LOCATION & 34 & 33 & 29 & 22 \\
+MEDICAL\_CONDITION & 68 & 66 & 38 & 48 \\
+NAME & 12 & 12 & 0 & 0 \\
+NON\_PERSONAL\_ID & 36 & 31 & 9 & 14 \\
+PATIENT\_ID & 41 & 39 & 0 & 1 \\
+PHONE\_NUMBER & 1 & 1 & 1 & 0 \\
+PROVIDER & 41 & 35 & 33 & 11 \\
+TREATMENT & 119 & 116 & 103 & 91 \\
+UNIQUE\_FACT & 46 & 42 & 40 & 17 \\
+\bottomrule
 \end{tabular}
 \end{table}
