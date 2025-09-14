@@ -190,7 +190,11 @@ To prioritize candidates we compute a global contribution for each entity \(e\):
 \[
 s_e \;=\; \max_{d\in\mathrm{docs}(e)} (\texttt{relevance}(e,d)) \cdot u(e) \cdot w_{type(e)}
 \]
-where $\texttt{relevance}(e,d)$ is the per-document utility for re-identification, $u(e)$ the corpus-wide uniqueness (Section \ref{approach-subsubsec:uniqueness}), and $w_{type(e)}$ the type-specific risk weight (Table~\ref{approach-tab:entity-weight-schema}). This score is primarily used to rank entities during greedy selection algorithms.
+where $\texttt{relevance}(e,d)$ is the per-document utility for re-identification, $u(e)$ the corpus-wide uniqueness (Section \ref{approach-subsubsec:uniqueness}), and $w_{type(e)}$ the type-specific risk weight (Table~\ref{approach-tab:entity-weight-schema}). This score is primarily used to rank entities during the document-level greedy selection algorithms.
+
+\paragraph{Chain entity impact}
+To quantify the impact of an entity on the chain risk for a specific path, we simulate a redaction of this entity and calculate the updated chain risk. The difference between the original chain risk and the new value is the \textit{impact} of an entity. This score will be used during chain-level redaction to sort entities during greedy selection or as a weight for the knapsack optimization.
+
 
 \subsubsection{Document-level redaction}
 We begin with redacting entities on a per document basis. For each document $d$ we iteratively select the highest-contributing unmasked entity, calculate its pseudonym, update the \textit{replacement dictionary} and recalculate the document risk on the reduced set of \textit{active entities}. This greedy algorithm continues until the risk score is pushed below a threshold $\theta_{doc}$ (e.g. $0.95$) or no further entities remain.
@@ -211,8 +215,8 @@ This hybrid approach prevents any chain from being above a certain risk using th
 \paragraph{Selection strategies.}
 At chain level we consider the following selection strategies:
 \begin{itemize}
-  \item \textbf{Greedy.} Iteratively mask the current highest-contributing entity, recompute affected document and chain risks and repeat until the stopping conditions are met. This is fast and scales to large corpora.
-  \item \textbf{Knapsack–style.} Reformulate finding the smallest set of entities to achieve the required risk reduction as a \textit{0/1 knapsack}-like problem. We calculate the required target reduction, the impact of masking each entity and optimize for the minimum required set using dynamic programming. This approach yields better minimality and therefore we expect higher utility, but is computationally expensive for higher candidate counts.
+  \item \textbf{Greedy.} Calculate the \textit{impact} for each entity in a chain. Iteratively mask the highest-\textit{impact} unmasked entity, recompute affected document and chain risks and repeat until the stopping conditions are met. This is fast and scales to large corpora.
+  \item \textbf{Knapsack-style.} Reformulate finding the smallest set of entities to achieve the required risk reduction as a \textit{0/1 knapsack}-like problem. We calculate the required target reduction, the \textit{impact} of masking each entity and optimize for the minimum required set using dynamic programming. This approach yields better minimality and therefore we expect higher utility, but is computationally expensive for higher candidate counts.
 \end{itemize}
 Differences between both selection strategies will be studied in Section \ref{chapter:discussion} % TODO add reference to ablation study
 
@@ -307,9 +311,8 @@ Out of all different combinations, the setting: $\texttt{EDGE\_STRENGTH\_THRESHO
 \subsubsection{Tuning: Anonymization Thresholds}
 The following section focusses on the the anonymization thresholds $\theta_{doc}$ and $\theta_{chain}$. We skip an extensive search for optimal $\rho_{risk\_level}$ as this relative reduction only acts as an additional safeguard.
 Empirical testing indicate effective intervals of $\theta_{doc}\in[0.85,0.95]$ and $\theta_{chain}\in[0.4,0.6]$. Values below these intervals aggresively over-redacted even low-risk entities, while higher values had little effect due to overly lenient thresholds. Afterwards we performed a Grid Search over these intervals to find a suitable privacy-utility tradeoff using the benchmark proposed in Chapter \ref{chapter:evaluation}. Manual checks revealed unnecessary masking with $\theta_{doc}=0.85$, removing it as potential candiate value. As shown in Figure \ref{approach-fig:privacy_utility_thetas}, within the remaining combinations, $\theta_{doc}=0.95$ and $\theta_{chain}=0.50$ achieved the most favorable privacy-utility tradeoff: utility was substantially higher than at $\theta_{doc}=0.90$, with only a marginal loss in privacy. Therefore we adapt this setting as default.  
-
-It should be noted that due to the stochasticity of LLM-based evaluation and the limited dataset size, these hyperparameters should be regarded as strong empirical defaults rather than universally optimal settings.
-
+ 
+It should be noted that due to the stochasticity of LLM-assisted evaluation and the limited dataset size, these hyperparameters should be regarded as strong empirical defaults rather than universally optimal settings.
  
 \begin{figure}[h]
     \centering

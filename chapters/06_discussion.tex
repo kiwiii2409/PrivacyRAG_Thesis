@@ -1,10 +1,141 @@
 % !TeX root = ../main.tex
 \chapter{Discussion}\label{chapter:discussion}
 \section{Ablation Studies}
-Knapsack vs. Greedy 
+In this section we discuss the different effects of parameters or algorithmic choices. A introductory study was already performed in Section \ref{approach-subsec:hyperparams} for the most relevant parameters. Here we focus more on parameters that are not essential for the pipeline, and can be chosen depending on the context this pipeline is deployed in.
 
-Document-level redaction only vs. full pipeline 
+\subsection{Varying chain lengths}
+We study the effect of varying chain lengths. Increasing this parameter allows the graph to capture more long-term connections between documents, therefore increasing the number of entities potentially accumulated. This has different effects: more entiteis increase the potential for reidentification, but also introduces noise. To explore the effects we compare the number of redactions performed by sAnon as well as the benchmark performance.
 
-Maybe different extraction models 
+\subsection{Document-level redaction only vs. full pipeline}
+To justify the use of the 2-stage approach of first redacting document risks, followed by a chain-level redaction we isolate the effect of the document-level redaction. We compare the original pipeline with variations only performing the document-level redaction using different $\theta_{doc}\in[0.75, 0.95]$ to see how it performs in terms of entities redacted, privacy leakage and utility. When talking about the full pipeline , we use the hyperparameter configurations found in Section \ref{approach-subsec:hyperparams} ($\theta_{doc}=0.95$ and $\theta_{chain}=0.50$).\\
+The goal for the chain-level redaction are:
+\begin{itemize}
+    \item lower overall privacy risk
+    \item lower utility on specific questions 
+    \item full pipeline retains relatively high utility on general queries, especially on multi-document general queries
+\end{itemize}
+When comparing the effect of the chain-level redaction to the document-level redaction only step with $\theta_{doc} = 0.95$, we notice a drop in utility for specific questions. Single source question utility falls by $0.29$ while multi source drops $0.07$. This shows that the additional chain-level redaction step is effective at making patient-speicifc information harder to retrieve. At the same time, the second step preserves comparatively high general performance: general/multi under KS is 0.522, comparable to $\theta_{doc} = 0.95$ which is 0.518 and noticeably higher than the stricter thresholds $\theta_{doc} < 0.90$.General /single remains at 0.655 which is a surprising decrease. We can interpret these results as: the full pipeline achieves a selective privacy effect. It disproportionately reduces patient-specific retrieval while keeping general, non-identifying utility relatively high. Aggresive Document-level redaction redcues utility across all categories. This behaviour supports the use of chain-level redaction as a second stage.
+
+The reduction behaviour where reducing  $\theta_{doc} = 0.95$ uniformly reduces all cateogries but the second stage chain-level reduces specific single and general multi especially strong, might be expalined with the different metrics used. The document level metric selects entity using the document-risk caluclation while the chain level risk redacts based on impact regarding chain risk score. This leads to a potentially different set of entities being removed. 
+
+
+
+Put differently, the full pipeline achieves a selective privacy effect — it disproportionately degrades patient-specific retrieval while keeping general, non-identifying utility relatively high — whereas aggressive document-level redaction reduces utility across both specific and general questions.
+
+
+As expected, the number of redacted entities correlates with the privacy leakage. When looking at specific questions: 
+
+Wish: Document level redaction requires more redactions for the same privacy leakage. Document level redaction, at comparable privacy leakage performs worse on generla multi questions. 
+
+similar perofrmance for specific as documents are expected, as both redact critical large number of ciritcal entities. Outlier in specific single for 0.90 idk why
+
+Potential reason: knapsack also includse lower risk entities, therefore more midde-risk entities are preserved, leading to higher general multi performance. As these entities are often the ones linking documents (Hospital names). Specific multi being down \& comparable to even strong doc only redactions shows that FULL is able to strike out relevant entities in the second stage but doesn't strike out as many non-privayc relevant entities.
+the general single performance being similar /  lower than doc risk reduction. Why idk yet. Knapsack seems to select the actually most relevant set? reduces performance on specific single by removing entities.
+
+Goal: chain redaction pushes down chain risk, effectiveley reducing linkage risk (multi questions). if done right, this reduction only appears for specific multi and not for general multi. single documents will naturally be affected, but shouldn't be very strong
+
+There'
+% Full1| Full2| Full3| FullVAL| 0.95| 0.90| 0.90_2| 0.85| 0.80| 0.75|
+% 0.568 &0.553 &0.558 &0.598 &0.63 &0.561 &0.554 &0.504 &0.449 &0.415 &
+
+The goal for the chain-level
+
+
+
+\begin{table}[h!]
+\centering
+\caption{Summary for varying $\theta_{doc}$. KS is the Knapsack Algorithm here}
+\label{discussion-tab:theta_doc_llm}
+\begin{tabular}{l c c c c c c}
+\toprule
+\textbf{ } & \textbf{Full (KS)} & \textbf{0.95} &  \textbf{0.90} &  \textbf{085}&  \textbf{0.80} &  \textbf{0.75}\\
+\midrule
+\# redacted entities & 288 & 242 & 347 & 431 & 494 & 557 \\
+\midrule
+privacy leakage & 0.568 & 0.63 & 0.561 & 0.504 & 0.449 & 0.415 \\
+\midrule
+specific / single & 0.222 & 0.515 & 0.406 & 0.257 & 0.256 & 0.237 \\
+specific / multi & 0.253 & 0.317 & 0.246 & 0.244 & 0.248 & 0.238 \\
+general / single & 0.655 & 0.735 & 0.698 & 0.630 & 0.614 & 0.539 \\
+general / multi & 0.522 & 0.518 & 0.473 & 0.406 & 0.424 & 0.393 \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+ 
+
+
+
+
+
+
+\subsection{Knapsack vs. Greedy}
+Greedy blurs more than knapsakc, but knapsack combines low and medium risk entities for redaction!
+
+Goal: less redaction, therefore overall more utility. greedy less leakage => non minimal set => larger set means more redacted means more leakage. BUT: knapsack has stronger performance in general multi and comparable performance in general single, meaning that redacting entities has a positive effect on linkage reasoning. Single multi being 
+
+
+
+
+
+\begin{table}[h!]
+\centering
+\caption{Summary for Knapsack vs. Greedy Tradeoff}
+
+\label{discussion-tab:greedy_ks_llmjudge}
+\begin{tabular}{l c c c}
+\toprule
+\textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy\_1} & \textbf{sAnon\_Greedy\_2} \\
+\midrule
+\# redacted entities & 288 & 296 & 357\\
+\midrule
+specific / single & 0.222 & 0.407 & 0.411 \\
+specific / multi & 0.253 & 0.248 & 0.266 \\
+general / single & 0.655 & 0.633 & 0.660 \\
+general / multi & 0.522 & 0.393 & 0.449 \\
+\midrule
+
+privacy leakage & 0.568 &0.549 &0.536 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\subsection{Different extraction models}
+% \begin{table}[h!]
+% \centering
+% \caption{ROUGE-1 Recall}
+% \label{discussion-tab:greedy_ks_rouge}
+% \begin{tabular}{l c c c}
+% \toprule
+% \textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy\_1} & \textbf{sAnon\_Greedy\_2} \\
+% \midrule
+% specific / single & 0.486 & 0.518 & 0.513 \\
+% specific / multi & 0.496 & 0.517 & 0.512 \\
+% general / single & 0.697 & 0.675 & 0.678 \\
+% general / multi & 0.598 & 0.584 & 0.580 \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+% \begin{table}[h!]
+% \centering
+% \caption{BERTScore Recall}
+% \label{discussion-tab:greedy_ks_bert}
+% \begin{tabular}{l c c c}
+% \toprule
+% \textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy\_1} & \textbf{sAnon\_Greedy\_2} \\
+% \midrule
+% specific / single & 0.303 & 0.314 & 0.315 \\
+% specific / multi & 0.251 & 0.269 & 0.266 \\
+% general / single & 0.510 & 0.468 & 0.474 \\
+% general / multi & 0.345 & 0.327 & 0.327 \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+% \subsection{Rewriting vs. Value redaction}
+
+
 \section{Limitations}
 

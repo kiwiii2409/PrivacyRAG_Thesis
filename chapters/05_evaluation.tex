@@ -244,7 +244,10 @@ We report three metrics to assess answer quality. All metrics are computed per q
 
 
 \subsection{Results}
-sAnon delivers intermediate utility between standard RAG and SAGE across all metrics and question types. Its strongest retention is observable on general questions, while SAGE consistently scores the lowest. This aligns with the intended design trade-off of sAnon, which removes only a minimal set of entities, therefore preserving utiltiy particularly in non-senstiive contexts. 
+sAnon delivers intermediate utility between standard RAG and SAGE across all metrics and question types. Its strongest retention is observable on general questions, while SAGE consistently scores the lowest. This aligns with the intended design trade-off of sAnon, which removes only a minimal set of high-risk entities, therefore preserving utility particularly in non-senstiive contexts. 
+
+Conversely, because person-specific identifiers are systematically removed, specific questions often become partially or fully unanswerable. The resulting drop in utility on such items is therefore expected and a desirable side effect of reduced leakage.
+
 
 \paragraph{LLM-Judge}
 As expected, verbatim retrieval of standard RAG achieves the highest LLM-judge scores, establishing itself as an upper bound for answer quality \ref{evaluation-tab:utility-llm-details}. sAnon scores notably lower on specific questions, as identifying attributes of individuals are potentially masked. However, it retains relatively high utility on both single- and multi-source general questions. 
