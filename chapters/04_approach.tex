@@ -164,7 +164,7 @@ The accumulation step is identical to the one defined in Section \textit{Documen
 \texttt{edge\_strength}(d_i,d_j) \;=\; 1 - \prod_{e\in{via}}(1 - s_e(d_i,d_j))
 \]
 
-Finally, we prune the graph by removing egdes with $\texttt{STRENGTH\_THRESHOLD}$ below a user-specified threshold (e.g. $0.5$). This reduces noise in the form of harmless connections and computational costs. 
+Finally, we prune the graph by removing egdes with $\texttt{EDGE\_STRENGTH\_THRESHOLD}$ below a user-specified threshold (e.g. $0.5$). This reduces noise in the form of harmless connections and computational costs. 
 % TODO: statement currently not true, maybe ablation "and prevents excessive anonymization of entities during later steps"
 \subsubsection{Chain Risk}\label{approach-subsubsec:chain_risk}
 Re-identification often requires gathering information across multiple documents. To quantify this risk, we extract all \textit{document chains} up to length $k$ (simple paths or multi-document subgraphs) and calculate their respective chain risk. Each \textit{document chain} consists of documents $d_1,\dots,d_k$ and the edges connecting them. All entites together create a set we refer to as \textit{active entities}. During the anonymization step this set will be partially masked, leaving a reduced set of \textit{active entities}. All following calculations are based on this (potentielly masked) set.
@@ -208,7 +208,7 @@ After completing the document-level redaction, we recompute chain risks based on
 
 $\theta_{chain}$ acts as an absolute ceiling (e.g. $0.50$) and $\rho_{risk\_level}$ as a category-specific relative reduction.
 \[
-\rho_{risk\_level} = \{\texttt{HIGH}:0.70,\ \texttt{MEDIUM}:0.90\},
+\rho_{risk\_level} = \{\texttt{HIGH}:0.60,\ \texttt{MEDIUM}:0.80\},
 \]
 This hybrid approach prevents any chain from being above a certain risk using the absolute ceiling, while the relative rule enforces a meaningful reduction of chain risk onto all chains, further ensuring privacy preservation.
 
