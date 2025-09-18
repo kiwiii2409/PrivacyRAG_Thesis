@@ -1,6 +1,63 @@
 % !TeX root = ../main.tex
 \chapter{Evaluation}\label{chapter:evaluation}
-This chapter details the experimental framework designed to evaluate the privacy-utility trade-off in different privacy-focussed \ac{RAG} systems. This includes dataset creation, system settings, evaluation methodologies and attack strategies to systematically assess a given systems performance.
+We begin this chapter with answering RQ1. Afterwards we detail the experimental framework designed to evaluate the privacy-utility trade-off in different privacy-focussed \ac{RAG} systems. This includes dataset creation, system settings, evaluation methodologies and attack strategies to systematically assess a given systems performance.
+
+We use the following hyperparameter set for all following experiments and ablation studies unless stated otherwise:
+\begin{tcolorbox}[title={sAnon Configuration}, label={evaluation-subsec:sanon-config}]
+  \small
+  \begin{itemize}
+    \item \textbf{Model}: \texttt{gpt-oss-20b}
+    \item \textbf{Entity Filtering}: Type Filtering, \texttt{ENTITY\_FILTER\_STRENGTH} = 0.4
+    \item \textbf{Edge Filtering}: \texttt{EDGE\_STRENGTH\_THRESHOLD} = 0.5
+    \item \textbf{Chain Length}: 2 (due to short benchmark documents and average linkage length around 2-3)
+    \item \textbf{Risk categorization}: \texttt{RISK\_THRESHOLDS} = \{\texttt{HIGH}: 0.75, \texttt{MEDIUM}: 0.5\}
+    \item \textbf{Absolute Redaction limits}: $\theta_{chain} = 0.5$, $\theta_{doc} = 0.95$ 
+    \item \textbf{Relative Redaction limits}: $\rho_{risk\_level} = \{\texttt{HIGH}:0.50,\ \texttt{MEDIUM}:0.70\}$
+    \item \textbf{Selection algorith}: Knapsack
+    \item \textbf{Redaction}: Value Redaction
+\end{itemize}
+\end{tcolorbox}
+
+
+
+
+\section{RQ1: Can a risk-aware preprocessing pipeline accurately model cross-document linkage risk in an unstructured retrieval corpus?} % TODO change to "Can APPROACHNAME accurately model ..."
+We hand-labeled 3 separate 10-cluster datasets ($\approx 45$ documents each) for all the linkages that could increase re-identification risk and evaluated the pipelines modelled linkage using recall, precision, the F1-Score and the number of intra- vs. inter-cluster links
+
+Table \ref{evaluation-tab:rq0-results} reports high recall, capturing clost to $\approx 80\%$ of potentially identifying links alongside moderate precision, yielding an acceptable F1-Score across all three testsets. 
+
+The low number of inter-cluster connections demonstrates the pipline's ability to effectively suppress noisy cross-topic connections while preserving meaningful intra-cluster structure
+
+Remaining false positives occur mostly within a cluster and arise due to our approach using entity-matching to determine linkage: non-privacy relevant documents can share keywords, which leads to irrelevant linkage, potentially increasing redactions, hurting utility but not privacy. This highlights one of the limiations of keyword-level entities vs. structured triples which retain more context. Nonetheless the pipeline models most privacy-relevant connections.
+
+Hyperparameters were tuned in \ref{approach-subsec:hyperparams} using a small train set. While adapting parameters to these specific examples might raise scores, retuning on test-data would violate the train-test split, therefore no adjustments were made. 
+
+\begin{table}[h!]
+\centering
+\caption{Results for RQ1}
+\label{evaluation-tab:rq0-results}
+\begin{tabular}{m{2.5cm} m{2cm} m{2cm} m{2cm} m{3.5cm}}
+\toprule
+\textbf{} & \textbf{recall} & \textbf{precision} & \textbf{f1} & \textbf{\# inter/intra cluster connections}\\
+\midrule
+\textbf{Testset 1} & 0.78 & 0.54 & 0.64 & 0 / 30\\
+\textbf{Testset 2} & 0.89 & 0.47 & 0.62 & 0 / 25\\
+\textbf{Testset 3} & 0.71 & 0.67 & 0.69 & 1 / 16\\
+\midrule
+\textbf{Average Score} & 0.79 & 0.56 & 0.65 \\
+\bottomrule
+\end{tabular}
+\end{table}
+% TODO: add visualization
+
+% 1480_extracted_10_rq1_0_CL2.json - recall: 0.7777777777777778 - precision: 0.5384615384615384 - f1: 0.6363636363636364
+% --------------------------------------------------
+% 1481_extracted_10_rq1_1_CL2.json - recall: 0.8888888888888888 - precision: 0.47058823529411764 - f1: 0.6153846153846153
+% --------------------------------------------------
+% 1488_extracted_10_rq1_2_CL2.json - recall: 0.7142857142857143 - precision: 0.6666666666666666 - f1: 0.689655172413793
+
+
+
 
 \section{Data Generation}\label{evaluation-subsec:data-generation}
 \paragraph{Motivation}
@@ -36,7 +93,7 @@ We require that the four questions cover the following combinations: (single, sp
                    caption={Example Q\&A pairs (multi-source, general) for a cluster},
                    label={evaluation-lst:qa-pairs-multi-general}]
         {
-            "q": "What two factors influenced Gateway Health's 2024 aquatic therapy policy changes in metropolitan areas?",
+            "q": "What two factors influenced Gateway Health's 2024 \\aquatic therapy policy changes in metropolitan areas?",
             "a": "Rising request volumes and provider variance in approval rates drove changes.",
             "sources": ["cluster_2_doc1","cluster_2_doc2"],
             "type": "general"
@@ -58,12 +115,12 @@ The exact specifications associated with each \texttt{RISK} level are summarised
 \centering
 \caption{Specification of different \texttt{RISK} levels for synthetic persons}
 \label{evaluation-tab:data-gen-risk-profiles}
-\begin{tabular}{l p{1.5cm} p{2cm} p{2cm} p{5cm}}
+\begin{tabular}{l m{1.5cm} m{2cm} m{2cm} m{5cm}}
 \hline
 \textbf{RISK level} & \textbf{Entities} & \textbf{High-vulnerability entities} & \textbf{Cross-document overlap} & \textbf{Identifiability} \\
 \hline
-\texttt{HIGH} & $\geq 7$ & $\geq 3$ & 70-90\% & Unique combinations (e.g. rare medical condition + zipcode), reidentification through minimal linking \\
-\texttt{MEDIUM} & 4-6 & $\leq 2$ & 40-60\% & Some rare elements, reidentification through extensive document linking \\
+\texttt{HIGH} & $\geq 7$ & $\geq 3$ & 70-90\% & Unique combinations (e.g. rare medical condition + zipcode), reidentification through minimal linking \\[25pt]
+\texttt{MEDIUM} & 4-6 & $\leq 2$ & 40-60\% & Some rare elements, reidentification through extensive document linking \\[25pt]
 \texttt{LOW} & $\leq 4$ & 0 & $\leq 30\%$ & Person not identifiable through document linking \\
 \hline
 \end{tabular}
@@ -124,22 +181,6 @@ To improve evaluation accuracy we use an \textit{LLM-as-Judge}. In our case the 
 For our model, we select the latest open-source model released by OpenAI \textit{gpt-oss-20b} with temperature set to $0$ to receive more deterministic results. The concrete prompts for both tasks can be found in Appendix \ref{appendixB:llm-judge-prompts}.
 
 
-\subsection{sAnon Configuration}\label{evaluation-subsec:sanon-config}
-We use the following hyperparameter set for all following experiments and ablation studies unless stated otherwise:
-\begin{tcolorbox}[title={sAnon Configuration}]
-  \small
-  \begin{itemize}
-    \item \textbf{Model}: \texttt{gpt-oss-20b}
-    \item \textbf{Entity Filtering}: Type Filtering, \texttt{ENTITY\_FILTER\_STRENGTH} = 0.4
-    \item \textbf{Edge Filtering}: \texttt{EDGE\_STRENGTH\_THRESHOLD} = 0.5
-    \item \textbf{Chain Length}: 2
-    \item \textbf{RIsk categorization}: \texttt{RISK\_THRESHOLDS} = \{\texttt{HIGH}: 0.75, \texttt{MEDIUM}: 0.5\}
-    \item \textbf{Absolute Redaction limits}: $\theta_{chain} = 0.5$, $\theta_{doc} = 0.95$ 
-    \item \textbf{Relative Redaction limits}: $\rho_{risk\_level} = \{\texttt{HIGH}:0.50,\ \texttt{MEDIUM}:0.70\}$
-    \item \textbf{Selection algorith}: Knapsack
-    \item \textbf{Redaction}: Value Redaction
-\end{itemize}
-\end{tcolorbox}
 
 
 \subsection{Baselines}\label{evaluation-subsec:baselines}
@@ -208,13 +249,16 @@ The leak rate per attack is computed as the ratio of the sum of weights of leake
 \[
   \texttt{leak\_rate} = \frac{\sum_{e\in \mathcal{L}} w_{type(e)}}{\sum_{e \in \mathcal{T}} w_{type(e)}}
 \]
-This  prioritizes direct identifiers and sensitive linkable attributes, ensuring that leakage of high-risk entities dominates the score. A cluster is flagged as leaked if its leak rate exceeds a risk-specific threshold:
+This  prioritizes direct identifiers and sensitive linkable attributes, ensuring that leakage of high-risk entities dominates the score. 
+
+The following thresholding policy is heuristic and derived from a small sample. It sets conservative cutoffs to avoid low-risk entities from inflating the score and only marks a cluster as leaked when a large share of identifiers have been recovered. We verified that adjusting the thresholds by $\pm 0.1$ did not alter the relative ranking of baselines.
+
 \[
 \texttt{LEAKED\_THRESHOLDS} = \{\texttt{HIGH}: 0.6, \texttt{MEDIUM}: 0.8\}
 \]
-We do not apply a leakage flag to \texttt{LOW}-risk clusters in our analysis, as they do not pose a privacy risk by design. For example, if $\texttt{leak\_rate} > 0.6$ on a \texttt{HIGH}-risk cluster, the hidden target is counted as potentially re-identifiable and therefore leaked.
 
-This threshold scheme is heuristic, but chosen conservatively: it avoids inflating leak rates from low-risk entities (e.g. dates, treatments) and only flags clusters where a large majority of the entities have been leaked. We verified that adjusting the thresholds by $\pm 0.1$ did not alter the relative ranking of baselines.
+For example, if $\texttt{leak\_rate} > 0.6$ on a \texttt{HIGH}-risk cluster, the hidden target is counted as potentially re-identifiable and therefore leaked. We do not set the "leaked" flag on \texttt{LOW}-risk clusters in our analysis, as they do not pose a privacy risk by design. 
+
 
 \subsection{Results}
 Our approach (\textit{sAnon}) successfully lowers both precise leak rates  and the proportion of \texttt{HIGH/MEDIUM} clusters classified as leaked, relative to standard RAG, while remaining above \textit{SAGE}. As expected, \textit{SAGE} provides the strongest privacy protection, achieving the lowest leakage scores across both Figure \ref{evaluation-fig:precise_leakage} and  \ref{evaluation-fig:leakage_label}. 
@@ -245,55 +289,35 @@ This research question investigates whether \textit{Selective Anonymization} pre
 \subsection{Experimental goal and expected results}
 The primary goal is to compare the following three approaches regarding utility (see Section \ref{evaluation-subsec:baselines} for details):
 \begin{enumerate}
-\item \textbf{Default RAG:} retrieval over verbatim documents (upper-bound on utility, baseline for privacy).
+\item \textbf{Standard RAG:} retrieval over verbatim documents (upper-bound on utility, baseline for privacy).
 \item \textbf{Synthetic Data (SAGE):} retrieval over synthetic documents, rewritten to remove identifying signals while keeping semantic content
 \item \textbf{Selective Anonymization (ours):} retrieval over documents where only a subset of entities, selected by the policy described in Chapter \ref{chapter:approach}, are anonymized or removed.
 % \item \textbf{Document-level Anonymization}: identical to \textbf{Sleective Anonymization}, but focusses only on the document level redaction and skips graph evaluation etc.
 \end{enumerate}
 
-We expect \textit{Default RAG} to achieve the highest utility across all question types, since no modifications are applied to the documents. \textit{SAGE} is expected to incur some loss in answer quality, particularly for specific questions, as attributes may be generalized or rewritten during synthesis. Finally, we expect \textit{Selective Anonymization} to strike a balance: achieving higher utility than \textit{SAGE}, particularly on general questions, while still reducing leakage compared to \textit{Default RAG}.
+We expect \textit{Standard RAG} to achieve the highest utility across all question types, since no modifications are applied to the documents. \textit{SAGE} is expected to incur some loss in answer quality, particularly for specific questions, as attributes may be generalized or rewritten during synthesis. Finally, we expect \textit{Selective Anonymization} to strike a balance: achieving higher utility than \textit{SAGE}, while still reducing leakage compared to \textit{Standard RAG}. Concretely, \textit{sAnon} should remain close to \textit{Standard RAG} on general questions by preserving non-identifying passages, but align closer with \textit{SAGE} on specific, person-targeted questions as the masking intentionally targets information relevant to the answer. 
 
 
 \subsection{Scoring} 
 We report three metrics to assess answer quality. All metrics are computed per question and then averaged across clusters and question types.
-\paragraph{LLM-Judge Score} Each \ac{RAG}-system answer is evaluated by the automated \textit{LLM-Judge} (see Section \ref{evaluation-subsec:llm-judge}) which returns a scalar from $[0,1]$ with $1$ representing a perfect answer. The judge evaluates factual correctness and completeness relative to the optimal answer. A key advantage is that,  in contrast to string-based metrics,  semantically correct but differently phrased answers are not over-penalized.
 
 \paragraph{ROUGE-1 Recall} To measure the lexical overlap between the generated and the optimal answer we use ROUGE-1 recall. Unlike ROUGE-L, which is sensitive to word order, ROUGE-1 captures token-level factual content more directly in our setting. Since the optimal answers are very short (often $\leq 15$ words), recall is preferred over F1: verbose but factually complete and correct answers should not be penalized simply for having low precision.
 
-\paragraph{BERTScore Recall} We also report BERTScore Recall\cite{bertScore}, an automatic evaluation metric which computes a similarity score between each token in the generated answer and each token in the optimal answer using contextual embeddings. This makes BERTScore more robust towards paraphrasing than ROUGE, as it captures the semantic similarity instead of exact matches. However, it is less sensitive to minor factual errors (e.g. incorrect numbers or dates). Therefore it is used as a complementary rather than a standalone metric.
+
+\paragraph{BERTScore Recall} BERTScore Recall\cite{bertScore} is an automatic evaluation metric which computes a similarity score between each token in the generated answer and each token in the optimal answer using contextual embeddings. This makes BERTScore more robust towards paraphrasing than ROUGE, as it captures the semantic similarity instead of exact matches. However, it is less sensitive to minor factual errors (e.g. incorrect numbers or dates). 
+
+
+\paragraph{LLM-Judge Score} Each \ac{RAG}-system answer is also evaluated by the automated \textit{LLM-Judge} (see Section \ref{evaluation-subsec:llm-judge}) which returns a scalar from $[0,1]$ with $1$ representing a perfect answer. The judge evaluates factual correctness and completeness relative to the optimal answer. A key advantage is that, in contrast to string-based metrics, semantically correct but differently phrased answers are not over-penalized. These advantages make the LLM-Judge Score our primary utility metric with ROUGE-1 and BERTScore as complements.
+
 
 
 \subsection{Results}
 sAnon delivers intermediate utility between standard RAG and SAGE across all metrics and question types. Its strongest retention is observable on general questions, while SAGE consistently scores the lowest. This aligns with the intended design trade-off of sAnon, which removes only a minimal set of high-risk entities, therefore preserving utility particularly in non-senstiive contexts. 
 
-Conversely, because person-specific identifiers are systematically removed, specific questions often become partially or fully unanswerable. The resulting drop in utility on such items is therefore expected and a desirable side effect of reduced leakage.
-
-
-\paragraph{LLM-Judge}
-As expected, verbatim retrieval of standard RAG achieves the highest LLM-judge scores, establishing itself as an upper bound for answer quality \ref{evaluation-tab:utility-llm-details}. sAnon scores notably lower on specific questions, as identifying attributes of individuals are potentially masked.
-However it retains high utility on general questions, significantly outperforming SAGE in especially single-source questions.
-This suggests, that the value-level masking strategy maintains sufficient contextual and relational information between documents, including cases where non-sensitive cross-document reasoning is required. The lower scores on specific questions are consistent with the privacy evaluation results, further demonstrating that sAnon is able to selectively redact information and break linkage in sensitive contexts.
-In contrast, SAGE underperforms sAnon across all categories, with the largest gap on single-source general questions, indicating that full synthetic replacements can harm utility even when privacy concerns are minimal.
-
-\begin{table}[h!]
-\centering
-\caption{Detailed LLM-Judge Utility-Score across question types and baselines}
-\label{evaluation-tab:utility-llm-details}
-\begin{tabular}{l c c c}
-\toprule
-\textbf{(type/ source)} & \textbf{std\_RAG} & \textbf{sAnon} & \textbf{SAGE} \\
-\midrule
-specific / single & 0.796 & 0.421 & 0.144 \\
-specific / multi & 0.560 & 0.278 & 0.158 \\
-general / single & 0.869 & 0.784 & 0.444 \\
-general / multi & 0.653 & 0.498 & 0.384 \\
-\bottomrule
-\end{tabular}
-\end{table}
-
+Conversely, because person-specific identifiers are systematically removed, specific questions often become partially or fully unanswerable. The resulting drop in utility on such questions is therefore expected and a desirable side effect of reduced leakage.
 
 \paragraph{ROUGE1 \& BERTScore}
-Both ROUGE1-Recall (Table~\ref{evaluation-tab:utility-rouge-details}) and BERT-Recall (Table~\ref{evaluation-tab:utility-bert-details}) reveal the same overall pattern: standard RAG achieves the highest utility, sAnon provides intermediate performance, and SAGE performs worst. sAnon consistently preserves more utility for general questions, reflecting that minimal masking has limited impact on lexical and semantic similarity. In contrast, SAGE's full substitutions markedly reduce both token-level and semantic overlap, highlighting the trade-off between privacy and answer quality.
+Both ROUGE1-Recall (Table~\ref{evaluation-tab:utility-rouge-details}) and BERT-Recall (Table~\ref{evaluation-tab:utility-bert-details}) reveal the same overall pattern: standard RAG achieves the highest utility, sAnon provides intermediate performance, and SAGE performs worst. sAnon consistently scores higher on general questions, reflecting that minimal masking has limited impact on lexical and semantic similarity. In contrast, SAGE's full substitutions noticeably reduce both token-level and semantic overlap, highlighting the trade-off between privacy and answer quality.
 
 \begin{table}[h!]
 \centering
@@ -324,6 +348,30 @@ specific / single & 0.537 & 0.365 & 0.201 \\
 specific / multi & 0.419 & 0.288 & 0.207 \\
 general / single & 0.605 & 0.534 & 0.365 \\
 general / multi & 0.416 & 0.349 & 0.264 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+
+\paragraph{LLM-Judge}
+As expected, verbatim retrieval of standard RAG achieves the highest LLM-judge scores, establishing itself as an upper bound for answer quality \ref{evaluation-tab:utility-llm-details}. sAnon scores notably lower on specific questions, as identifying attributes of individuals are potentially masked.
+However it retains high utility on general questions, significantly outperforming SAGE in especially single-source questions.
+This suggests, that the value-level masking strategy maintains sufficient contextual and relational information between documents, including cases where non-sensitive cross-document reasoning is required. The lower scores on specific questions are consistent with the privacy evaluation results, further demonstrating that sAnon is able to selectively redact information and break linkage in sensitive contexts.
+In contrast, SAGE underperforms sAnon across all categories, with the largest gap on single-source general questions, indicating that full synthetic replacements can harm utility even when privacy concerns are minimal.
+
+\begin{table}[h!]
+\centering
+\caption{Detailed LLM-Judge Utility-Score across question types and baselines}
+\label{evaluation-tab:utility-llm-details}
+\begin{tabular}{l c c c}
+\toprule
+\textbf{(type/ source)} & \textbf{std\_RAG} & \textbf{sAnon} & \textbf{SAGE} \\
+\midrule
+specific / single & 0.796 & 0.421 & 0.144 \\
+specific / multi & 0.560 & 0.278 & 0.158 \\
+general / single & 0.869 & 0.784 & 0.444 \\
+general / multi & 0.653 & 0.498 & 0.384 \\
 \bottomrule
 \end{tabular}
 \end{table}

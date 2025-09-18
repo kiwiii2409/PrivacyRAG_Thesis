@@ -15,7 +15,7 @@
 % we begin with the relevant bakcground information and commonly used taxonom in c2, c3 will have a lit review about comon attack and defensive methods against rag. c4 will have our proposed method and c5 will evaluate. c6 discusses limiations and future work
 
 
-\ac{RAG} systems combine a large language model with an external retrieval corpus to ground answers in up-to-date or domain specfic knowledge. It has become a practical architecture for many real-world applications, from enterprise question answering to clinical decision support. \cite{chatDoctor} By including relevant, domain specific context at inference time, RAG systems experience reduced hallucinations \cite{ragNoHallucination} and improvements in factuality compared to LLM-only approaches. \cite{ragOrigin}
+\ac{RAG} systems combine a large language model with an external retrieval corpus to ground answers in up-to-date or domain specfic knowledge. It has become a practical architecture for many real-world applications, from enterprise question answering to clinical decision support  \cite{chatDoctor}. By including relevant, domain specific context at inference time, RAG systems experience reduced hallucinations \cite{ragNoHallucination} and improvements in factuality compared to LLM-only approaches  \cite{ragOrigin}.
 
 At  the same time, appending retrieved passages to the model prompt introduces a new privacy risk: \ac{PII} or other sensitive fragments stored in the retrieval corpus may be disclosed through generated outputs. Recent studies demonstrated the effectiveness of a variety of membership inference and extraction attacks that recover identifiers and fragments. \cite{goodAndBad,ragThief,ragMIA,generatingIsBelieving,DEAL}
 

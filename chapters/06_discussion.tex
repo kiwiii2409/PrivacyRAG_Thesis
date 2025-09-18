@@ -3,16 +3,15 @@
 \section{Ablation Studies}
 In this section we discuss the different effects of parameters or algorithmic choices. An introductory study was already performed in Section \ref{approach-subsec:hyperparams} for the most relevant parameters. Here we focus more on the parameters that are not essential for the pipeline to function  but may be adjusted depending on the deployment context.  
 
-All experiments are conducted on the same dataset used in the main evaluation. Variations of the sAnon configuration (Section~\ref{evaluation-subsec:sanon-config}) are calculated using snapshots recorded during the initial evaluation. These snapshots capture the internal state of the pipeline immediately after entity extraction, eliminating non-determinism and ensuring stable and consistent comparisons.  Similar to the main evaluation we run each variation on three separate entity extractions average all the results to reduce noise.
+All experiments are conducted on the same dataset used in the main evaluation. Variations of the sAnon configuration (Section \ref{evaluation-subsec:sanon-config}) are calculated using snapshots recorded during the initial evaluation. These snapshots capture the internal state of the pipeline immediately after entity extraction, eliminating non-determinism and ensuring stable and consistent comparisons.  Similar to the main evaluation we run each variation on three separate entity extractions and average the results to reduce noise.
 
 
 \subsection{Varying chain lengths}
-Increasing the chain length allows the graph to capture more long-range dependencies between documents, therefore potentially increasing the number of entities accumulated. This has different effects: (1) more entities increase the potential for reidentification, but (2) it also introduces noise which may lead to unwated redactions later.
+Increasing the chain length allows the graph to capture more long-range dependencies between documents, therefore potentially increasing the number of entities accumulated. This has different effects: (1) more entities increase the potential for reidentification, but (2) it also introduces noise which may lead to unwated redactions later. Table \ref{discussion-tab:chain_length} shows increasing chain length increases the number of redactions, thereby decreasing privacy leakage at a cost on downstream Q\&A. 
 
-Table \ref{discussion-tab:chain_length} shows increasing chain length increases the number of redactions, thereby decreasing privacy leakage. 
-The drop in overall utility is strongest between $CL=2$ and $CL=3$, while degradaiton from  $CL=3$ to $CL=4$ is relatively minor. We attribute this to this dataset's strucutre, where most relevnat entity connections span no more than three documents. As a result the benefits of having chains longer 3 are limited here.
+For this dataset our previous assumptions hold and $CL = 2$ achieves the best trade-off: moving from $CL=2$ to $CL=3$ yields a leakage reduction of $\approx 1\%$ but degrades average utility by $\approx 5.2\%$ for specific and by $\approx 7.3\%$ for general questions. Further increasing to $CL=4$ decreases privacy leakage by another $3.03\%$ with a marginal drop in utility (see Table \ref{discussion-tab:chain_length_percentage}).  We attribute this to our dataset's structure, where most relevant entity connections span only 2 documents.
 
-In more complex datasets with longer inter-documnet dependencies, a higher chain length may perform better, but it will require careful context-dependent tuning to balance leakage reduction againast utility loss.
+In more complex corpora with longer inter-document dependencies, a higher $CL$ may perform better, but it will require careful context-dependent tuning to balance leakage reduction against utility loss.
 
 
 \begin{table}[h!]
@@ -31,6 +30,27 @@ specific / single & 0.421 & 0.389 & 0.386 \\
 specific / multi & 0.278 & 0.270 & 0.266 \\
 general / single & 0.784 & 0.765 & 0.764 \\
 general / multi & 0.498 & 0.437 & 0.430 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\caption{Percentage-wise Comparison of Chain Lengths}
+\label{discussion-tab:chain_length_percentage}
+\begin{tabular}{l c c}
+\toprule
+\textbf{ } & CL=2 vs. CL=3& CL=3 vs. CL=4 \\
+\midrule
+\# redacted entities & +6.12\% & +8.85\% \\
+\midrule
+
+privacy leakage & -0.95\% & -3.03\% \\
+\midrule
+specific / single & -7.60\% & -0.77\% \\
+specific / multi & -2.88\% & -1.48\% \\
+general / single & -2.42\% & -0.13\% \\
+general / multi & -12.25\% & -1.59\% \\
 \bottomrule
 \end{tabular}
 \end{table}
@@ -85,32 +105,32 @@ Additionally the full pipeline appears to be more efficient: it reaches $\approx
 \end{table}
 
 
-\subsection{Knapsack vs. Greedy}% TODO
-We expected a clearer separation between the algorithms with significantly fewer redaction and measurably higher performance by Knapsack (KS) when compared to Greedy selection. In our setting however, both methods reached the same privacy leakage, despite Knapsack redacting less entities. \footnote{The leakage rate was double checked and appears to be a coincidence}. 
+% \subsection{Knapsack vs. Greedy}% TODO
+% We expected a clearer separation between the algorithms with significantly fewer redaction and measurably higher performance by Knapsack (KS) when compared to Greedy selection. In our setting however, both methods reached the same privacy leakage, despite Knapsack redacting less entities. \footnote{The leakage rate was double checked and appears to be a coincidence}. 
 
-We attribute the similarity of both strategies to the small corpus (242 short documents). The benefits of using an optimal, minimal selection of entities for redaction likely becomes visible when the stronger linkage between more complex and longer documents is present. Under the current experiments scale, Greedy selection offeres a comparable privacy utility tradeoff, while KS yields slightly better multi-document general utility. 
+% We attribute the similarity of both strategies to the small corpus (242 short documents). The benefits of using an optimal, minimal selection of entities for redaction likely becomes visible when the stronger linkage between more complex and longer documents is present. Under the current experiments scale, Greedy selection offeres a comparable privacy utility tradeoff, while KS yields slightly better multi-document general utility. 
 
-\begin{table}[h!]
-\centering
-\caption{Summary for Knapsack vs. Greedy Tradeoff}
+% \begin{table}[h!]
+% \centering
+% \caption{Summary for Knapsack vs. Greedy Tradeoff}
 
-\label{discussion-tab:greedy_ks_llmjudge}
-\begin{tabular}{l c c c}
-\toprule
-\textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy}\\
-\midrule
-\# redacted entities & 245 & 248\\
-\midrule
-privacy leakage & 0.634 &0.634  \\
-\midrule
-specific / single & 0.421 & 0.433  \\
-specific / multi & 0.278 & 0.282  \\
-general / single & 0.784 & 0.785  \\
-general / multi & 0.498 & 0.464 \\
+% \label{discussion-tab:greedy_ks_llmjudge}
+% \begin{tabular}{l c c c}
+% \toprule
+% \textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy}\\
+% \midrule
+% \# redacted entities & 245 & 248\\
+% \midrule
+% privacy leakage & 0.634 &0.634  \\
+% \midrule
+% specific / single & 0.421 & 0.433  \\
+% specific / multi & 0.278 & 0.282  \\
+% general / single & 0.784 & 0.785  \\
+% general / multi & 0.498 & 0.464 \\
 
-\bottomrule
-\end{tabular}
-\end{table}
+% \bottomrule
+% \end{tabular}
+% \end{table}
 
 
 % \subsection{Value Redaction vs. Rewriting} % REMOVE probably
@@ -134,15 +154,24 @@ general / multi & 0.498 & 0.464 \\
 % \end{tabular}
 % \end{table}
 
-\subsection{Different extraction model choices}
+% \subsection{Different extraction model choices}
 %gpt20oss, gpt120oss, what else
+% not ablation study, if needed put into separtaate section, but dont here
 
 
-
+ 
 \section{Limitations}
+While our pipeline achieves it's desired performance, it comes with many limitations, partially due to its strong dependency on the LLM-based entity extraction and normalization. Multi-word and overlappting entities can be inconsistently typed or split (e.g. "SF Potrero Hill Arthritis Center" as PROVIDER vs. LOCATION, where the shorter location span is also potentially needed for cross-document links) and normalization is not guaranteed across all appearing variations (e.g. "Dr Elise Varga" vs "Dr. Varga"). These effects are amplified by passing a long context during the second entity extraction pass, degrading overall performance.
 
-% depends on entity extraction
-% extensive tuning
-% struggles with consistency: show entity for which it didn't work due to overlap 
-% no privacy guarantees
-%
+% A potential mitigation worth exploring would be stricter prompting and more selective, similarity-based context passing.
+
+Due to the methods heuristic approach of quantifying risks, it requires careful \& extensive tuning of hyperparameters to achieve it's maximal potential and is unable to provide formal guarantess (unlike Differential Privacy approaches). 
+
+
+Regarding the synthetic benchmark: it controls overlap and risk within documents and clusters but is unable to simulate messy real-world data or structured artifacts (e.g., benign tables) that might lead to  unwarranted redaction.
+
+
+
+presentation first week of october
+
+

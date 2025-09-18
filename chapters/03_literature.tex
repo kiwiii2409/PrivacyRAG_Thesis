@@ -2,7 +2,7 @@
 \chapter{Literature Review}\label{chapter:literature}
 This chapter positions the present work in the landscape of \ac{RAG} privacy research. It draws on the definitions and threat model introduced in Chapter \ref{chapter:background} and focusses on three topics that motivate this thesis: (1) privacy leakage and attacks on RAG, (2) defensive strategies and their trade-offs, and (3) benchmarking and evaluation methods relevant to cross-document linkage.
 
-\section{RAG Privacy Leakage}\label{literature-sec:privacy-attacks}
+\section{RAG Privacy Risks}\label{literature-sec:privacy-attacks}
 Recent work demonstrates that, even in a black-box setting (as defined in Section~\ref{background-sec:threat-model}), \ac{RAG} systems are vulnerable to data leakage \cite{implicationsRAG,goodAndBad}. A key vulnerability arises not just from direct leakage of sensitive information, but from the attacker's ability to accumulate information across multiple queries. This process enables the linkage of seemingly irrelevant data points to reconstruct sensitive profiles, a threat central to this thesis.
 
 These privacy attacks can be broadly classified into the following categories: \textit{targeted attacks}, and \textit{untargeted attacks}.
@@ -53,7 +53,9 @@ Others propose prompt-based defenses, by using a strong system prompt to enforce
 \section{Benchmark and evaluation practices}
 Existing work often uses datasets like HealthCareMagic and the Enron Mail dataset to evaluate privacy risk. These datasets work at the single-document level and they do not provide a systematic way to measure privacy risk that arises from linking fragments across documents. For this reason, previously used benchmarks do not directly address the key threat targeted in this thesis. 
 
-Utility testing, which commonly happens separate from privacy testing, is performed on Q\&A datasets like \textit{Natural Questions} \cite{NQ}, \textit{triviaQA} \cite{TriviaQA}, \textit{PopQA} \cite{popQA} or \textit{HotpotQA} \cite{hotpotQA}. \cite{LPRAG,goodAndBad,ragSAGE,eraser4RAG,DPVoteRAG} These Q\&A datasets provide a wide range of topics for measuring answer quality with some including multi-hop reasoning challenges (e.g. \textit{HotpotQA}). One of the main limitations of these datasets is the lack of direct- and/ or quasi-identifiers in the corpus. Therefore, results do not reflect the privacy-utility tradeoff present in regular data.
+Utility testing, which commonly happens separate from privacy testing, is performed on Q\&A datasets like \textit{Natural Questions} \cite{NQ}, \textit{triviaQA} \cite{TriviaQA}, \textit{PopQA} \cite{popQA} or \textit{HotpotQA} \cite{hotpotQA}. These Q\&A datasets provide a wide range of topics for measuring answer quality with some including multi-hop reasoning challenges (e.g. \textit{HotpotQA}). One of the main limitations of these datasets is the lack of direct- and/ or quasi-identifiers in the corpus. Therefore, results do not reflect the privacy-utility tradeoff present in regular data.
 
 This motivates the creation of a dedicated dataset that supplies groups of documents (called \textit{clusters}) with varying linkage strength, matched single/ multi-source Q\&A pairs and explicit privacy targets for linkage attacks. See Section \ref{evaluation-subsec:data-generation} for the full dataset generation and validation pipeline.
 
+
+% \cite{LPRAG,goodAndBad,ragSAGE,eraser4RAG,DPVoteRAG} rephrase later

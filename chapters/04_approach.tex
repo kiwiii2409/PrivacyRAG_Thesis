@@ -167,9 +167,9 @@ The accumulation step is identical to the one defined in Section \textit{Documen
 Finally, we prune the graph by removing egdes with $\texttt{EDGE\_STRENGTH\_THRESHOLD}$ below a user-specified threshold (e.g. $0.5$). This reduces noise in the form of harmless connections and computational costs. 
 % TODO: statement currently not true, maybe ablation "and prevents excessive anonymization of entities during later steps"
 \subsubsection{Chain Risk}\label{approach-subsubsec:chain_risk}
-Re-identification often requires gathering information across multiple documents. To quantify this risk, we extract all \textit{document chains} up to length $k$ (simple paths or multi-document subgraphs) and calculate their respective chain risk. Each \textit{document chain} consists of documents $d_1,\dots,d_k$ and the edges connecting them. All entites together create a set we refer to as \textit{active entities}. During the anonymization step this set will be partially masked, leaving a reduced set of \textit{active entities}. All following calculations are based on this (potentielly masked) set.
+Re-identification often requires gathering information across multiple documents. To quantify this risk, we extract all \textit{document chains} up to length $CL$ (simple paths or multi-document subgraphs) and calculate their respective chain risk. For our analysis, we set the chain length $CL=2$ because our dataset primarily contains connections of this length; however this can be ajusted depending on the context. Each \textit{document chain} consists of documents $d_1,\dots,d_{CL}$ and the edges connecting them. All entites together create a set we refer to as \textit{active entities}. During the anonymization step this set will be partially masked, leaving a reduced set of \textit{active entities}. All following calculations are based on this (potentielly masked) set.
 
-To calculate the Chain Risk $R_{\texttt{chain}}$ of length $k$, we compute a \emph{hop risk} for each edge (referred to as hop) $h$ within the chain $H$ and accumulate it using the complement-of-product formulation. The \textit{hop\_risk} of one hop $h$ between two documents $d_{i_h}$ and $d_{j_h}$ is defined as the \texttt{edge\_strength} scaled by the modified average of both document risks. The scaling captures how much the documents' internal risk amplifies the hop risk, allowing a low average document risk to reduce the \emph{hop risk} by up to 1/2. The exact formula goes:
+To calculate the Chain Risk $R_{\texttt{chain}}$ of length $CL$, we compute a \emph{hop risk} for each edge (referred to as hop) $h$ within the chain $H$ and accumulate it using the complement-of-product formulation. The \textit{hop\_risk} of one hop $h$ between two documents $d_{i_h}$ and $d_{j_h}$ is defined as the \texttt{edge\_strength} scaled by the modified average of both document risks. The scaling captures how much the documents' internal risk amplifies the hop risk, allowing a low average document risk to reduce the \emph{hop risk} by up to 1/2. The exact formula goes:
 \[
 \texttt{hop\_risk}(h)\;=\; \texttt{edge\_strength} * \frac{1+\frac{R(d_{i_h}) + R(d_{j_h})}{2}}{2}
 \]
@@ -246,7 +246,7 @@ The goal of this section is to find the appropriate settings for filtering the c
 
 As a baseline, we manually extract the entities from each document that the extractor might deem relevant for re-identification or linking. This baseline is then compared against the output of the pipeline after the Context-Aware Entity Extraction (see Section~\ref{approach-subsubsec:context_extract}). 
 
-We evaluate the quality of entity filtering using \textit{ROUGE-1 F1} on a per-document basis and average the results to obtain the final score for a given filter setting. \textit{ROUGE-1 F1} is chosen because it provides a balanced trade-off between precision and recall, ensuring that missing relevant entities (low recall) and too many irrelevant ones (low precision) are penalized. This suits our task, as both types of errors degrade linking quality by either failing to capture links  between documents or introducing noise.
+We evaluate the quality of entity filtering using \textit{ROUGE-1 F1}\cite{rougeScore} on a per-document basis and average the results to obtain the final score for a given filter setting. \textit{ROUGE-1 F1} is chosen because it provides a balanced trade-off between precision and recall, ensuring that missing relevant entities (low recall) and too many irrelevant ones (low precision) are penalized. This suits our task, as both types of errors degrade linking quality by either failing to capture links between documents or introducing noise.
 
 The configurable parameters in our implementation are: 
 \begin{itemize}
@@ -284,7 +284,7 @@ Justification of the two-stage extraction can be found when comparing the green 
 We attempt to find the optimal parameters to extract all required \textit{document chains} which might be useful for reidentification. First, we measure the quality by comparing the number of connections between documents from the same cluster (intra-cluster connection) and documents from different clusters (inter-cluster connection). We aim to minimize inter-cluster connections while preserving most of the relevant intra-cluster connections.
 
 The configurable parameter in this case is the \texttt{EDGE\_STRENGTH\_THRESHOLD}, which removes edges with too little strength. These are often inter-cluster connections, as documents about different topics typically share less entities. Removing these weak links 
-removes noise coming from many weak inter-clutser connections and therefore reduces the risk of false positives.
+removes noise coming from many weak inter-cluster connections and therefore reduces the risk of false positives.
 % prevents over-anonymization during the anonymization of entities. 
 % For example: three documents \textit{doc1, doc2, doc3} form a chain, with strong links between \textit{doc1, doc2} but a single weak link to \textit{doc3}. If an entity is blurred in \textit{doc1, doc2} it will also be blurred in doc3, despite \textit{doc3} not being a risk, therefore potentially harming utility without improving privacy.
 
@@ -306,7 +306,7 @@ Using this interval as a starting point, we perform a grid-search including the 
     \label{approach-fig:f1_chain_score}
 \end{figure} 
 
-Out of all different combinations, the setting: $\texttt{EDGE\_STRENGTH\_THRESHOLD} = 0.5$ performs the best, with a maximum F1-Score of 0.776. Unexpectedly, this F1-Score is constant in the interval $\texttt{RISK\_THRESHOLD} \in [0.0,0.5]$, suggesting that for this example the pipeline didn't extract lower-risk chains which could be filtered out by setting $\texttt{RISK\_THRESHOLD}$ below $0.5$. Afterwards it begins to fall, indicating that relevant chains are being filtered out (see \ref{approach-fig:f1_chain_score}). We use this value as our final setting for the pipeline. The reported Recall and Precision can be found in the appendix () % TODO add reference to appendix and add two c2 graphs
+Out of all different combinations, the setting: $\texttt{EDGE\_STRENGTH\_THRESHOLD} = 0.5$ performs the best, with a maximum F1-Score of $\approx 0.82$. The F1-Score is constant in the interval $\texttt{RISK\_THRESHOLD} \in [0.0,0.5]$, suggesting that for this example the pipeline didn't extract lower-risk chains which could be filtered out by setting $\texttt{RISK\_THRESHOLD}$ below $0.5$. Afterwards it begins to fall, indicating that relevant chains are being filtered out (see \ref{approach-fig:f1_chain_score}). We use this value as our final setting for the pipeline. The reported Recall and Precision can be found in the appendix () % TODO add reference to appendix and add two c2 graphs
 
 \subsubsection{Tuning: Anonymization Thresholds}
 The following section focusses on the the anonymization thresholds $\theta_{doc}$ and $\theta_{chain}$. We skip an extensive search for optimal $\rho_{risk\_level}$ as this relative reduction only acts as an additional safeguard.
@@ -321,11 +321,63 @@ It should be noted that due to the stochasticity of LLM-assisted evaluation and 
     \label{approach-fig:privacy_utility_thetas}
 \end{figure} 
 
-\section{RQ1: Can a risk-aware preprocessing pipeline accurately detect and model cross-document linkage risk in an unstructured retrieval corpus?}
-% Unsure about exactly, kind of don't want to label a giant dataset...
-TODO: Label dataset of like 10 clusters (around 50) documents for all risky connections and compare scores.
-Other possible metrics: 
-\begin{itemize}
-    \item number of connections within clusters vs. between clusters => little inter-cluster connection mean detected linkage is correct
-    \item redactions per type => removing all direct identifiers prevent
-\end{itemize}
+
+
+\begin{tikzpicture}[node distance=8mm and 12mm, font=\small, >=Latex] % Increased node distance slightly for clarity
+\tikzset{
+    proc/.style={rectangle, rounded corners, draw, align=center, inner sep=3pt, fill=gray!5},
+    data/.style={rectangle, draw, align=center, inner sep=3pt, fill=blue!5},
+    dec/.style={diamond, draw, aspect=2, align=center, inner sep=1pt, fill=orange!10} % Not used, but kept for completeness
+}
+
+% --- First Column (Main Flow) ---
+\node[data] (in) {JSON docs\\id, metadata, content};
+\node[proc, below=of in] (norm) {Normalize text\\lowercase; document\_id=id||md5(content)};
+\node[proc, below=of norm] (ext1) {Entity extraction I\\LLM per doc\\(original, normalized, type, relevance)};
+\node[proc, below=of ext1] (filter) {Context filtering\\score=max\_rel$\cdot$uniqueness\\type filter, top-k};
+\node[proc, below=of filter] (ext2) {Entity extraction II\\LLM with existing\_entities};
+
+% --- Second Column (Parallel Flow 1: Risk Calculation) ---
+% Position the first node of the second column to the right of the middle of the first column
+\node[proc, right=of ext2] (uniq) {Uniqueness $u(e)$\\IDF-normalized over corpus};
+\node[proc, below=of uniq] (riskd) {Document risk $R(d)=1-\prod(1-c_i)$\\$c_i=e_{rel}\cdot u(e)\cdot w_{type}$};
+\node[proc, below=of riskd] (graph) {Document graph $G$\\edges on shared entities\\edge\_strength via $s_e$ and product};
+\node[proc, below=of graph] (chains) {Chain analysis ($\leq k$) hop\\risk; $R_{chain}=1-\prod(1-hop)$\\categorize HIGH/MED/LOW};
+
+% --- Third Column (Parallel Flow 2: Redaction) ---
+% Position the first node of the third column to the right of the middle of the second column
+\node[proc, below=of chains] (docred) {Doc-level redaction\\greedy by $s_e$=max\_d rel$\cdot$u$\cdot$w\\stop $R(d)<\theta_{doc}$};
+\node[proc, below=of docred] (chainred) {Chain-level redaction\\greedy or knapsack by impact\\stop $R_{chain}\leq\theta_{chain}$ and $\rho$ rule};
+\node[proc, below=of chainred] (replace) {Replacement\\value redaction [TYPE]\\or pseudonyms / redact / rewrite};
+\node[data, below=of replace] (out) {Sanitized docs\\for indexing in RAG};
+
+
+% --- Drawing Paths ---
+% Main flow
+\draw[->] (in) -- (norm);
+\draw[->] (norm) -- (ext1);
+\draw[->] (ext1) -- (filter);
+\draw[->] (filter) -- (ext2);
+
+% Connection from main flow to risk calculation
+\draw[->] (ext2) -| (uniq); % Connects ext2 to uniq, then drops down
+
+% Risk calculation flow
+\draw[->] (uniq) -- (riskd);
+\draw[->] (riskd) -- (graph);
+\draw[->] (graph) -- (chains);
+
+% Connection from risk calculation to redaction
+\draw[->] (chains) -| (docred);
+
+% Redaction flow
+\draw[->] (docred) -- (chainred);
+\draw[->] (chainred) -- (replace);
+\draw[->] (replace) -- (out);
+
+% Feedback loops (dashed lines) - Adjusted for new layout
+\draw[<-, dashed] (docred.west) -| ($(uniq.south west)!0.5!(riskd.south west) - (1cm,0)$) |- (riskd.west);
+\draw[<-, dashed] (chainred.west) -| ($(riskd.south west)!0.5!(graph.south west) - (1cm,0)$) |- (chains.west);
+
+
+\end{tikzpicture}
