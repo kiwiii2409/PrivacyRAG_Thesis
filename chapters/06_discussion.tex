@@ -161,11 +161,11 @@ Additionally the full pipeline appears to be more efficient: it reaches $\approx
 
  
 \section{Limitations}
-While our pipeline achieves it's desired performance, it comes with many limitations, partially due to its strong dependency on the LLM-based entity extraction and normalization. Multi-word and overlappting entities can be inconsistently typed or split (e.g. "SF Potrero Hill Arthritis Center" as PROVIDER vs. LOCATION, where the shorter location span is also potentially needed for cross-document links) and normalization is not guaranteed across all appearing variations (e.g. "Dr Elise Varga" vs "Dr. Varga"). These effects are amplified by passing a long context during the second entity extraction pass, degrading overall performance.
+While our pipeline achieves it's desired performance, it comes with many limitations, partially due to its strong dependency on the LLM-based entity extraction and normalization. Multi-word and overlapping entities can be inconsistently categorized or split (e.g. "SF Potrero Hill Arthritis Center" as PROVIDER vs. LOCATION, where the shorter location span is also potentially needed for cross-document links) and normalization is not guaranteed across all appearing variations (e.g. "Dr Elise Varga" vs "Dr. Varga"). These effects are amplified by passing a long context during the second entity extraction pass, degrading overall performance.
 
 % A potential mitigation worth exploring would be stricter prompting and more selective, similarity-based context passing.
 
-Due to the methods heuristic approach of quantifying risks, it requires careful \& extensive tuning of hyperparameters to achieve it's maximal potential and is unable to provide formal guarantess (unlike Differential Privacy approaches). 
+Due to the methods heuristic approach of quantifying risks, it requires careful \& extensive tuning of hyperparameters to achieve it's maximal potential and is unable to provide formal guarantees (unlike Differential Privacy approaches). 
 
 
 Regarding the synthetic benchmark: it controls overlap and risk within documents and clusters but is unable to simulate messy real-world data or structured artifacts (e.g., benign tables) that might lead to  unwarranted redaction.

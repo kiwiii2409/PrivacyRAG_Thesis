@@ -285,7 +285,6 @@
       \field{labelnamesource}{author}
       \field{labeltitlesource}{title}
       \field{journaltitle}{AWS Machine Learning Blog}
-      \field{month}{4}
       \field{title}{Protect sensitive data in RAG applications with Amazon Bedrock}
       \field{year}{2025}
       \verb{urlraw}
@@ -446,6 +445,36 @@
       \endverb
       \verb{url}
       \verb https://arxiv.org/abs/2305.14888
+      \endverb
+    \endentry
+    \entry{ICO_special_category}{misc}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=6d0291916a214e5d44ebe281a129c5a8}{%
+           family={{Information Commissioner's Office}},
+           familyi={I\bibinitperiod}}}%
+      }
+      \strng{namehash}{6d0291916a214e5d44ebe281a129c5a8}
+      \strng{fullhash}{6d0291916a214e5d44ebe281a129c5a8}
+      \strng{bibnamehash}{6d0291916a214e5d44ebe281a129c5a8}
+      \strng{authorbibnamehash}{6d0291916a214e5d44ebe281a129c5a8}
+      \strng{authornamehash}{6d0291916a214e5d44ebe281a129c5a8}
+      \strng{authorfullhash}{6d0291916a214e5d44ebe281a129c5a8}
+      \field{sortinit}{I}
+      \field{sortinithash}{8d291c51ee89b6cd86bf5379f0b151d8}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{note}{Accessed: [Current Date, e.g., 18 September 2025]}
+      \field{title}{What is special category data?}
+      \field{urlday}{18}
+      \field{urlmonth}{12}
+      \field{urlyear}{2023}
+      \field{year}{2023}
+      \field{urldateera}{ce}
+      \verb{urlraw}
+      \verb https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-is-special-category-data/#scd5
+      \endverb
+      \verb{url}
+      \verb https://ico.org.uk/for-organisations/uk-gdpr-guidance-and-resources/lawful-basis/special-category-data/what-is-special-category-data/#scd5
       \endverb
     \endentry
     \entry{mixtralModel}{misc}{}
@@ -1558,6 +1587,54 @@
       \endverb
       \verb{url}
       \verb https://aclanthology.org/2023.acl-long.546/
+      \endverb
+    \endentry
+    \entry{NIST_privacy_recommendation}{misc}{}
+      \name{author}{3}{}{%
+        {{un=0,uniquepart=base,hash=8905a66f2598150ee63273b4519136b1}{%
+           family={McCallister},
+           familyi={M\bibinitperiod},
+           given={Erika},
+           giveni={E\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=55a1eaf2530c3eda34c0063a885352e9}{%
+           family={Grance},
+           familyi={G\bibinitperiod},
+           given={Tim},
+           giveni={T\bibinitperiod},
+           givenun=0}}%
+        {{un=0,uniquepart=base,hash=6ec0273a63537a3b6f05aa7eb1ec9aca}{%
+           family={Scarfone},
+           familyi={S\bibinitperiod},
+           given={Karen\bibnamedelima A.},
+           giveni={K\bibinitperiod\bibinitdelim A\bibinitperiod},
+           givenun=0}}%
+      }
+      \list{institution}{2}{%
+        {National Institute of Standards}%
+        {Technology (NIST)}%
+      }
+      \list{location}{1}{%
+        {Gaithersburg, MD}%
+      }
+      \strng{namehash}{2f7c6b152720e9973602c19cbf638a8a}
+      \strng{fullhash}{2f7c6b152720e9973602c19cbf638a8a}
+      \strng{bibnamehash}{2f7c6b152720e9973602c19cbf638a8a}
+      \strng{authorbibnamehash}{2f7c6b152720e9973602c19cbf638a8a}
+      \strng{authornamehash}{2f7c6b152720e9973602c19cbf638a8a}
+      \strng{authorfullhash}{2f7c6b152720e9973602c19cbf638a8a}
+      \field{sortinit}{M}
+      \field{sortinithash}{4625c616857f13d17ce56f7d4f97d451}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{number}{Special Publication 800-122}
+      \field{title}{Guide to Protecting the Confidentiality of Personally Identifiable Information (PII)}
+      \field{year}{2010}
+      \verb{urlraw}
+      \verb https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-122.pdf
+      \endverb
+      \verb{url}
+      \verb https://nvlpubs.nist.gov/nistpubs/legacy/sp/nistspecialpublication800-122.pdf
       \endverb
     \endentry
     \entry{microsoft_presidio}{misc}{}
@@ -4389,6 +4466,33 @@
       \endverb
       \verb{url}
       \verb https://kilthub.cmu.edu/articles/journal_contribution/Simple_Demographics_Often_Identify_People_Uniquely/6625769
+      \endverb
+    \endentry
+    \entry{HIPAA_priacy_recommendation}{misc}{}
+      \name{author}{1}{}{%
+        {{un=0,uniquepart=base,hash=1555f444c4f219a9b0b2ea651a46588b}{%
+           family={{U.S. Department of Health and Human Services}},
+           familyi={U\bibinitperiod}}}%
+      }
+      \strng{namehash}{1555f444c4f219a9b0b2ea651a46588b}
+      \strng{fullhash}{1555f444c4f219a9b0b2ea651a46588b}
+      \strng{bibnamehash}{1555f444c4f219a9b0b2ea651a46588b}
+      \strng{authorbibnamehash}{1555f444c4f219a9b0b2ea651a46588b}
+      \strng{authornamehash}{1555f444c4f219a9b0b2ea651a46588b}
+      \strng{authorfullhash}{1555f444c4f219a9b0b2ea651a46588b}
+      \field{sortinit}{U}
+      \field{sortinithash}{6901a00e45705986ee5e7ca9fd39adca}
+      \field{labelnamesource}{author}
+      \field{labeltitlesource}{title}
+      \field{howpublished}{Web Page}
+      \field{note}{Accessed: 2025-09-18}
+      \field{title}{Guidance Regarding Methods for De-identification of Protected Health Information in Accordance with the HIPAA Privacy Rule}
+      \field{year}{2012}
+      \verb{urlraw}
+      \verb https://www.hhs.gov/hipaa/for-professionals/special-topics/de-identification/index.html
+      \endverb
+      \verb{url}
+      \verb https://www.hhs.gov/hipaa/for-professionals/special-topics/de-identification/index.html
       \endverb
     \endentry
     \entry{modelChoiceRAG}{misc}{}

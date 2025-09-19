@@ -3,43 +3,30 @@
 
 \chapter{Introduction}\label{chapter:introduction}
 
-% introduce using LLMs and integration with database for RAG. Crucial architecture for building knowledgeable and grouded AI systems. reduces hallucinations and allows for most recent knowledge
+\ac{RAG} systems combine a large language model with an external retrieval corpus to ground answers in up-to-date or domain specific knowledge. It has become a practical architecture for many real-world applications, from enterprise question answering to clinical decision support \cite{chatDoctor}. By including relevant, domain specific context at inference time, RAG systems experience reduced hallucinations \cite{ragNoHallucination} and improvements in factuality compared to LLM-only approaches \cite{ragOrigin}.
 
+At  the same time, appending retrieved passages to the model prompt introduces a new privacy risk: \ac{PII} or other sensitive fragments stored in the retrieval corpus may be disclosed through generated outputs. Recent studies demonstrated the effectiveness of a variety of membership inference and extraction attacks that recover identifiers and fragments \cite{ragMIA, ragThief,generatingIsBelieving,goodAndBad,DEAL}. 
 
-% Major problem:  privacy utility tradeoff. rag enhances factual accuracy but risks leaking sensitive informatino from the knowlege base. significant privacy risk
+This thesis addresses a specific, under-explored facet of the risk: \textit{cross-document linkage}. Many current privacy benchmarks and de-identification strategies focus on single-document redaction without considering the entire corpus \cite{LPRAG,DPVoteRAG,ragSAGE}. However, practical re-identification risk often arises when numerous small fragments or \textit{quasi-identifiers}, distributed across multiple documents are combined. Classic re-identification studies and modern RAG attacks both indicate that aggregation of such fragments is possible and significantly increases identifiability \cite{ragThief,netflixDeAnon, simpleDemographic}.
 
-% exisitng work handles this using synthetic data, differential privacy or (industry) prompt based defenses (anthopic aws). Often focussed on single document leakage and fail to address cross-document leakage. current method either don't conisder the risk of aggreagtion of quasi-identifiers or over-redact it, degrading utility
+Recent work such as Eraser4RAG begins to address multi-document leakage by training rewriting models that remove private triples across documents. While this approach shows promise, it relies on model retraining and introduces challenges in interpretability and auditing, making it less straightforward to deploy \cite{eraser4RAG}.
 
-% thesis proposes a new method called selective anonymization to tackle single as well as cross-document leakage using minimal redactions to preserve as much utility as possible
-
-% we begin with the relevant bakcground information and commonly used taxonom in c2, c3 will have a lit review about comon attack and defensive methods against rag. c4 will have our proposed method and c5 will evaluate. c6 discusses limiations and future work
-
-
-\ac{RAG} systems combine a large language model with an external retrieval corpus to ground answers in up-to-date or domain specfic knowledge. It has become a practical architecture for many real-world applications, from enterprise question answering to clinical decision support  \cite{chatDoctor}. By including relevant, domain specific context at inference time, RAG systems experience reduced hallucinations \cite{ragNoHallucination} and improvements in factuality compared to LLM-only approaches  \cite{ragOrigin}.
-
-At  the same time, appending retrieved passages to the model prompt introduces a new privacy risk: \ac{PII} or other sensitive fragments stored in the retrieval corpus may be disclosed through generated outputs. Recent studies demonstrated the effectiveness of a variety of membership inference and extraction attacks that recover identifiers and fragments. \cite{goodAndBad,ragThief,ragMIA,generatingIsBelieving,DEAL}
-
-This thesis addresses a specific, under-explored facet of the risk: \textit{cross-document linkage}. Many current privacy benchmarks and de-identification strategies focus on single-document redaction without considering the entire corpus \cite{ragSAGE,DPVoteRAG,LPRAG}. However, practical re-identification risk often arises when numerous small fragments or \textit{quasi-identifers}, distributed across multiple documents are combined. Classic re-identification studies and modern RAG attacks both indicate that aggregation of such fragments is possible and significantly increases identifiability. \cite{simpleDemographic,netflixDeAnon,ragThief}
-
-Recent work such as Eraser4RAG begins to address multi-document leakage by training rewriting models that remove private triples across documents. While this approach shows promise, it relies on model retraining and introduces challenges in interpretability and auditing, making it less straightforward to deploy. \cite{eraser4RAG}
-
-We propose the interpretable, configurable preprocessing approach \textit{selective anonymization} (sAnon) that reduces cross-document linkage with minimal impact on utility. Our preprocessing pipeline (1) extracts candidate entities, scores them, (2) constructs a weighted document graph modelling cross-document links, and (3) performs minimal targeted masking (value redaction or pseudonymization) to reduce both per-document and chain risk below configurable thresholds. The approach aims to mask the smallest possible set of links needed to achieve policy targets, thereby preserving utility wherever possible.
+We propose CLAM (Cross-document Linkage-Aware Masking), an interpretable, configurable preprocessing approach that reduces cross-document linkage while reducing impact on utility. The CLAM pipeline (1) extracts candidate entities, scores them, (2) constructs a weighted document graph modeling cross-document links, and (3) performs minimal targeted value masking or pseudonymization to reduce both per-document and chain risk below configurable thresholds. Our approach aims to mask the smallest necessary set of links needed to achieve policy targets, thereby preserving utility wherever possible.
 
 The primary contributions of this work are:
 \begin{itemize}
-  \item a risk-aware \textit{selective anonymization} pipeline that prioritises minimal masking based on corpus-wide risk scores derived from document-graph analysis
-  \item a synthetic benchmark for cross-document linkage evaluation, which generates short linked-document clusters, per-cluster privacy targets and single- and multi-source Q\&A pairs allowing systematic privacy and utility testing
+  \item a risk-aware CLAM pipeline that prioritizes minimal masking based on corpus-wide risk scores derived from document-graph analysis
+  \item a synthetic benchmark for cross-document linkage evaluation, which generates short, linked-document clusters, per-cluster privacy targets and single- and multi-source Q\&A pairs allowing systematic privacy and utility testing
   \item an evaluation framework combining automated black-box attacks, an LLM-based judge, and complementary automatic metrics to characterize the privacy-utility trade-off across baselines.
 \end{itemize}
 
-
-The evaluation compares our \textit{selective anonymization} approach against representative baselines (verbatim retrieval, SAGE-style synthetic replacements). We perform a series of targeted black-box attacks (membership inference attakcks, targeted extraction prompts) to probe for privacy leakage and use the Q\&A set to test utility.
+The evaluation compares CLAM against representative baselines (verbatim retrieval, SAGE-style synthetic replacements) \cite{ragSAGE}. We perform a series of targeted black-box attacks (membership inference attacks, targeted extraction prompts) to probe for privacy leakage and use the Q\&A set to test utility.
 
 The research questions driving this work are:
 \begin{enumerate}
-  \item Can our risk-aware preprocessing pipeline accurately detect and model cross-document linkage risk in an unstructured retrieval corpus?
-  \item Does \textit{selective anonymization} reduce privacy leakage at both the document and cross-document (chain) levels compared to established baselines?
-  \item Does \textit{selective anonymization} preserve higher downstream utility (answer quality) than alternative privacy defenses while achieving comparable reductions in linkage risk?
+  \item Can a risk-aware preprocessing pipeline accurately model cross-document linkage risk in an unstructured retrieval corpus?
+  \item Does CLAM reduce privacy leakage at both the document and cross-document (chain) levels compared to established baselines?
+  \item Does CLAM preserve higher downstream utility (answer quality) than alternative privacy defenses while achieving comparable reductions in linkage risk?
 \end{enumerate}
 
 
