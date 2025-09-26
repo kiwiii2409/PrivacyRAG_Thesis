@@ -1,0 +1,51 @@
+% !TeX root = ../main.tex
+\section{Background and Threat Model}\label{sec:background}
+\subsection{Taxonomies}
+We collect privacy concepts that will be reused throughout this thesis, focusing on the forms of identifiers and masking approaches.
+
+\paragraph{Direct vs.\ quasi-identifiers}
+\textit{Direct identifiers} uniquely determine an individual on their own (e.g. full names, exact addresses, SSN, national ID). Quasi-identifiers are attributes that are often non-unique individually but become highly identifying when combined (e.g. date of birth, ZIP code, gender). Privacy research regarding re-identification shows that seemingly innocent fragments can enable linkage. The most famous examples include the Netflix Prize de-anonymization via cross-linking ratings with external data \cite{netflixDeAnon} and Sweeney's paper "Simple Demographics Often Identify People Uniquely" \cite{simpleDemographic}. 
+
+\paragraph{Personally identifiable information}
+Personally Identifiable Information (PII) is a broad term used to refer to both \textit{direct-identifiers} and \textit{quasi-identifiers}.
+
+\paragraph{Single-document vs.\ cross-document leakage}
+Existing benchmarks and defenses focus on single-document leakage, e.g. preventing a single retrieved passage from leaking its sensitive data (e.g. identifiers of a person) \cite{ragSAGE, goodAndBad}. However, many realistic risks arise from \textit{cross-document leakage}: an adversary aggregates non-sensitive or partially sensitive fragments (often quasi-identifiers) across multiple retrieval rounds to re-identify a person. Because RAG systems reveal different context snippets across queries \cite{ragThief}, linkage attacks can combine partial leaks into a high-confidence identification. This motivates modeling and evaluating cross-document leakage separately with dedicated benchmarks and mechanisms that consider aggregation and linkability signals rather than only per-document leakage.
+
+\paragraph{Anonymization vs.\ pseudonymization (GDPR)}
+Under GDPR, \textit{anonymization} refers to transforming data such that individuals can no longer be associated with the data. It implies practical irreversibility and unlinkability. \textit{Pseudonymization}, by contrast, is defined as "the processing of personal data in such a manner that the personal data can no longer be attributed to a specific data subject without the use of additional information" \cite{anonDefinition}. 
+In RAG corpora, pseudonymization (e.g. consistent per-entity tokens) can reduce direct leakage but may still enable cross-document linkage via stable pseudonyms and residual quasi-identifiers. In contrast, anonymization (e.g. replacing names/addresses with generic placeholders such as \texttt{[NAME]} or \texttt{[REDACTED]} or completely removing them) aims to break both direct identification and cross-document linkability.
+
+\paragraph{Privacy-utility trade-off}
+One of the central challenges in privacy-preserving RAG is balancing privacy and utility. Defenses must prevent leakage of sensitive information while preserving non-sensitive context, since utility for downstream tasks directly depends on the retained information. This trade-off is often difficult because the sensitivity of information is context-dependent, making it challenging to design defenses that minimize over-redaction and prevent re-identification simultaneously.
+
+
+\subsection{Standard RAG Pipeline}
+A RAG system consists of a LLM $M$, a retrieval corpus $D=\{d_1,\dots,d_n\}$, and a retriever defined by an encoder $\phi$ and a similarity function $s$. 
+Given a query $q$, the encoder maps both query and documents into a shared representation space:
+\[
+e_q = \phi(q), \quad e_d = \phi(d) \;\; \text{for } d \in D.
+\]
+Relevance is quantified by the similarity score $s(e_q,e_d)$ (e.g. cosine similarity). 
+The retriever then returns the top-$k$ most similar documents in descending score order:
+\[
+R_k(q,D) = \operatorname{argsort}_{d \in D}^{(k)} \; s(e_q,e_d) = (d^{(1)}, \dots, d^{(k)}).
+\]
+The query and retrieved documents are combined into an augmented input
+\[
+x = c(q, R_k(q,D)),
+\]
+where $c(\cdot)$ is a deterministic formatting function (e.g. concatenation with separators).
+Finally, the augmented input $x$ is passed to the LLM $M$, which generates the output answer $a$.
+
+
+\subsection{Threat Model}\label{background-sec:threat-model}
+For the adversary we assume a black-box scenario, where the attacker's access to the model is limited to API queries. Therefore the attacks are limited to carefully designed queries to accumulate responses over multiple requests. The adversary can adapt queries based on prior answers and is constrained to a finite budget $N \in \mathbb{N}$
+
+Let $U$ be a set of individuals within the retrieval corpus. The adversary targets a specific $u^* \in U$. Each round $t$, a query $q_t$ yields an answer $a_t$, from which the adversary may extract (partial-) identifiers. 
+Let $E$ be the set of PII entities for the target $u^*$ and let $L_{\leq T}\subseteq E$ denote the entities leaked in the accumulated answers $a_1,\dots,a_T$. For a threshold $\theta\in(0,1)$ the attack is successful if
+\[
+    \exists T \leq N: \vert L_{\leq T}\vert \geq \theta \cdot \vert E\vert.
+\]
+
+

@@ -1,0 +1,22 @@
+\boolfalse {citerequest}\boolfalse {citetracker}\boolfalse {pagetracker}\boolfalse {backtracker}\relax 
+\babel@toc {american}{}
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {4.1}{\ignorespaces Compact overview: preprocessing, privacy analysis, and anonymization pipeline.\relax }}{11}{figure.caption.21}%
+\contentsline {figure}{\numberline {4.2}{\ignorespaces Comparison of type-based and non-type-based filtering. (a) shows performance using \textit {ROUGE-1 F1} while (b) illustrates the corresponding entity counts.\relax }}{22}{figure.caption.69}%
+\contentsline {figure}{\numberline {4.3}{\ignorespaces Graph connections across \texttt {EDGE\_STRENGTH\_THRESHOLD}\relax }}{23}{figure.caption.72}%
+\contentsline {figure}{\numberline {4.4}{\ignorespaces F1 Score for different combinations of \texttt {RISK\_THRESHOLD} and \texttt {EDGE\_STRENGTH\_THRESHOLD}\relax }}{24}{figure.caption.73}%
+\contentsline {figure}{\numberline {4.5}{\ignorespaces Privacy-Utility Tradeoff for different combinations for $\theta _{doc}$ and $\theta _{chain}$ (higher is better)\relax }}{25}{figure.caption.76}%
+\addvspace {10\p@ }
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Precise leakage rate\relax }}{36}{figure.caption.94}%
+\contentsline {figure}{\numberline {5.2}{\ignorespaces Leakage rate for HIGH and MEDIUM clusters\relax }}{37}{figure.caption.95}%
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\addvspace {10\p@ }
+\providecommand \tocbasic@end@toc@file {}\tocbasic@end@toc@file 

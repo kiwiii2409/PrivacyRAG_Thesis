@@ -1,0 +1,25 @@
+% !TeX root = ../acm-paper/main.tex
+
+Retrieval-Augmented Generation (RAG) improves factuality by grounding answers in
+external documents but it also makes them vulnerable to privacy leakage. Previous
+works have extensively studied privacy preservation on a per-document basis, but the
+risk of cross-document linkage has been mostly overlooked. Cross-document linkage
+allows quasi-identifiers to be aggregated across queries, enabling re-identification.
+While document-level redaction often implicitly prevents cross-document linkage, it
+also leads to over-redaction, harming utility even in non-sensitive contexts.
+
+To address this issue, we propose Cross-document Linkage-Aware Masking (CLAM),
+an interpretable preprocessing pipeline that builds a weighted document graph from
+extracted entities to analyze both document- and chain-level leakage. By combining
+relevance and corpus-wide uniqueness scores it estimates the risks stemming from
+linking documents and applies knapsack-style selection to choose a minimal set of
+entities to mask. To evaluate our approach we introduce a synthetic benchmark,
+consisting of linked health-insurance documents, Q\&A pairs and explicit targets for
+privacy evaluation. It performs black-box attacks and uses automated metrics such as
+ROUGE, BERTScore and an LLM-judge to score the performance.
+
+Across experiments, CLAM successfully recovers most privacy-relevant links, significantly reduces privacy leakage relative to standard RAG, while preserving substantially
+higher utility than fully synthetic replacements on non-sensitive, general questions.
+Overall, CLAM proves to be a effective, though not perfect strategy to protect against
+document- and chain-level leakage while offering a favorable privacy-utility trade-off
+compared to common baselines.

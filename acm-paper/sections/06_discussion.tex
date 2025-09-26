@@ -1,0 +1,177 @@
+% !TeX root = ../main.tex
+\section{Discussion}\label{sec:discussion}
+\subsection{Ablation Studies}
+In this section we discuss the different effects of parameters or algorithmic choices. An introductory study was already performed in Section \ref{approach-subsec:hyperparams} for the most relevant parameters. Here we focus more on the parameters that are not essential for the pipeline to function  but may be adjusted depending on the deployment context.  
+
+All experiments are conducted on the same dataset used in the main evaluation. Variations of the sAnon configuration (Section \ref{evaluation-subsec:sanon-config}) are calculated using snapshots recorded during the initial evaluation. These snapshots capture the internal state of the pipeline immediately after entity extraction, eliminating non-determinism and ensuring stable and consistent comparisons.  Similar to the main evaluation we run each variation on three separate entity extractions and average the results to reduce noise.
+
+
+\subsection{Varying chain lengths}
+Increasing the chain length allows the graph to capture more long-range dependencies between documents, therefore potentially increasing the number of entities accumulated. This has different effects: (1) more entities increase the potential for reidentification, but (2) it also introduces noise which may lead to unwated redactions later. Table \ref{discussion-tab:chain_length} shows increasing chain length increases the number of redactions, thereby decreasing privacy leakage at a cost on downstream Q\&A. 
+
+For this dataset our previous assumptions hold and $CL = 2$ achieves the best trade-off: moving from $CL=2$ to $CL=3$ yields a leakage reduction of $\approx 1\%$ but degrades average utility by $\approx 5.2\%$ for specific and by $\approx 7.3\%$ for general questions. Further increasing to $CL=4$ decreases privacy leakage by another $3.03\%$ with a marginal drop in utility (see Table \ref{discussion-tab:chain_length_percentage}).  We attribute this to our dataset's structure, where most relevant entity connections span only 2 documents.
+
+In more complex corpora with longer inter-document dependencies, a higher $CL$ may perform better, but it will require careful context-dependent tuning to balance leakage reduction against utility loss.
+
+
+\begin{table}[h!]
+\centering
+\caption{Summary for varying Chain Length (CL)}
+\label{discussion-tab:chain_length}
+\begin{tabular}{l c c c c}
+\toprule
+\textbf{ } & $CL = 2$ & $CL = 3$ & $CL = 4$ \\
+\midrule
+\# redacted entities & 245 & 260 & 283 \\
+\midrule
+privacy leakage & 0.634 &0.628 &0.609  \\
+\midrule
+specific / single & 0.421 & 0.389 & 0.386 \\
+specific / multi & 0.278 & 0.270 & 0.266 \\
+general / single & 0.784 & 0.765 & 0.764 \\
+general / multi & 0.498 & 0.437 & 0.430 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h!]
+\centering
+\caption{Percentage-wise Comparison of Chain Lengths}
+\label{discussion-tab:chain_length_percentage}
+\begin{tabular}{l c c}
+\toprule
+\textbf{ } & CL=2 vs. CL=3& CL=3 vs. CL=4 \\
+\midrule
+\# redacted entities & +6.12\% & +8.85\% \\
+\midrule
+
+privacy leakage & -0.95\% & -3.03\% \\
+\midrule
+specific / single & -7.60\% & -0.77\% \\
+specific / multi & -2.88\% & -1.48\% \\
+general / single & -2.42\% & -0.13\% \\
+general / multi & -12.25\% & -1.59\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+\subsection{Document-level redaction only vs. full pipeline}
+To justify the use of the proposed 2-stage redaction approach, we first isolate the effect of the document-level redaction. We compare the original pipeline with variants that only apply document-level redaction using thresholds $\theta_{doc}\in[0.8, 0.95]$. We then contrast these results with the full pipeline, combining document-level redaction followed by chain-level redaction. 
+
+When comparing the effect of the full pipeline to the only-document-level redaction with $\theta_{doc} = 0.95$ in Table \ref{discussion-tab:theta_doc_llm}, we notice a drop in utility for specific questions while general-question utility is mostly preserved. 
+
+\begin{table}[h!]
+\centering
+\caption{Summary for varying $\theta_{doc}$. KS is the Knapsack Algorithm here}
+\label{discussion-tab:theta_doc_llm}
+\begin{tabular}{l p{1.5cm} p{2cm} c c c c}
+\toprule
+\textbf{ } & \textbf{full pipeline} & $\theta_{doc} = 0.95$ {baseline}& $\theta_{doc} = 0.90$ &  $\theta_{doc} = 0.85$ & $\theta_{doc} = 0.80$\\
+\midrule
+\# redacted entities & 245 & 223 & 318 & 398 & 463  \\
+\midrule
+privacy leakage & 0.634 &0.669 &0.590 &0.531 &0.489  \\
+\midrule
+specific / single & 0.421 & 0.460 & 0.347 & 0.324 & 0.269 \\
+specific / multi & 0.278 & 0.326 & 0.281 & 0.227 & 0.224  \\
+general / single & 0.784 & 0.802 & 0.759 & 0.715 & 0.634  \\
+general / multi & 0.498 & 0.532 & 0.459 & 0.449 & 0.448  \\
+
+\bottomrule
+\end{tabular}
+\end{table}
+
+
+To illustrate these differences, Table \ref{discussion-tab:percent-docOnly-Full} compares the percentage-wise reduction from $\theta_{doc} = 0.95$ to $\theta_{doc} = 0.90$ and the full pipeline. 
+
+Analyzing the four utility categories reveals that the full pipeline consistently targets multi-source questions more than single source questions for both specific and general questions. In contrast, setting ($\theta_{doc} = 0.9$) yields a mixed pattern. Also, the second stage of the pipeline redacts specific-multi-source questions ($-14.72\%$) more than twice as much compared to general-multi-source questions ($-6.39\%$), confirming the expected \textit{selective-privacy effect}: patient-specific tasks requiring reasoning over documents are disproportionately targeted, while general-utility tasks retain relatively high performance.
+
+
+Additionally the full pipeline appears to be more efficient: it reaches $\approx 44\%$ of the privacy improvement achieved by setting $\theta_{doc} = 0.90$, but requires only 22 instead of 95 entities to do so. A possible reason is the chain-risk scoring, which makes shared entities high-impact because masking them simultaneously lowers the edge strength and both endpoint document risks. This leads to the full pipeline being more surgical during entity redaction, therefore requiring less entities compared to the "blanket-redaction" performed by tightening $\theta_{doc} = 0.90$.
+
+\begin{table}[h!]
+\centering
+\caption{Percentage change from the 0.95 $\theta_{doc}$ baseline}
+\label{discussion-tab:percent-docOnly-Full}
+\begin{tabular}{p{3.5cm} p{2cm} p{2cm} p{2cm} p{2cm}}
+\toprule
+\textbf{} & \textbf{specific/ single} & \textbf{specific/ multi} & \textbf{general/ single} & \textbf{general/ multi} \\
+\midrule
+\textbf{\% Change from 0.95 to Full (KS)} & -8.48\% & -14.72\% & -2.24\% & -6.39\% \\
+\textbf{\% Change from 0.95 to 0.90} & -24.57\% & -13.80\% & -5.36\% & -13.72\% \\
+\bottomrule
+\end{tabular} 
+\end{table}
+
+
+% \subsection{Knapsack vs. Greedy}% TODO
+% We expected a clearer separation between the algorithms with significantly fewer redaction and measurably higher performance by Knapsack (KS) when compared to Greedy selection. In our setting however, both methods reached the same privacy leakage, despite Knapsack redacting less entities. \footnote{The leakage rate was double checked and appears to be a coincidence}. 
+
+% We attribute the similarity of both strategies to the small corpus (242 short documents). The benefits of using an optimal, minimal selection of entities for redaction likely becomes visible when the stronger linkage between more complex and longer documents is present. Under the current experiments scale, Greedy selection offeres a comparable privacy utility tradeoff, while KS yields slightly better multi-document general utility. 
+
+% \begin{table}[h!]
+% \centering
+% \caption{Summary for Knapsack vs. Greedy Tradeoff}
+
+% \label{discussion-tab:greedy_ks_llmjudge}
+% \begin{tabular}{l c c c}
+% \toprule
+% \textbf{combination} & \textbf{sAnon\_Knapsack} & \textbf{sAnon\_Greedy}\\
+% \midrule
+% \# redacted entities & 245 & 248\\
+% \midrule
+% privacy leakage & 0.634 &0.634  \\
+% \midrule
+% specific / single & 0.421 & 0.433  \\
+% specific / multi & 0.278 & 0.282  \\
+% general / single & 0.784 & 0.785  \\
+% general / multi & 0.498 & 0.464 \\
+
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+
+% \subsection{Value Redaction vs. Rewriting} % REMOVE probably
+% When comparing 
+% \begin{table}[h!]
+% \centering
+% \caption{Summary for Value Redaction vs. Rewriting}
+% \label{discussion-tab:redact_rewrite_llmjudge}
+% \begin{tabular}{l c c c}
+% \toprule
+% \textbf{combination} & \textbf{Value Redaction} & \textbf{Rewriting}\\
+% \midrule
+% privacy leakage & 0.568 &0.549 \\
+% \midrule
+% specific / single & 0.421 & 0.464  \\
+% specific / multi & 0.278 & 0.269  \\
+% general / single & 0.784 & 0.790  \\
+% general / multi & 0.498 & 0.513 \\
+
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+% \subsection{Different extraction model choices}
+%gpt20oss, gpt120oss, what else
+% not ablation study, if needed put into separtaate section, but dont here
+
+
+ 
+\subsection{Limitations}
+While our pipeline achieves it's desired performance, it comes with many limitations, partially due to its strong dependency on the LLM-based entity extraction and normalization. Multi-word and overlapping entities can be inconsistently categorized or split (e.g. "SF Potrero Hill Arthritis Center" as PROVIDER vs. LOCATION, where the shorter location span is also potentially needed for cross-document links) and normalization is not guaranteed across all appearing variations (e.g. "Dr Elise Varga" vs "Dr. Varga"). These effects are amplified by passing a long context during the second entity extraction pass, degrading overall performance.
+
+% A potential mitigation worth exploring would be stricter prompting and more selective, similarity-based context passing.
+
+Due to the methods heuristic approach of quantifying risks, it requires careful \& extensive tuning of hyperparameters to achieve it's maximal potential and is unable to provide formal guarantees (unlike Differential Privacy approaches). 
+
+
+Regarding the synthetic benchmark: it controls overlap and risk within documents and clusters but is unable to simulate messy real-world data or structured artifacts (e.g., benign tables) that might lead to  unwarranted redaction.
+
+
+
+presentation first week of october
+
+
